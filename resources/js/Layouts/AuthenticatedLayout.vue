@@ -47,13 +47,42 @@ const toggleResponsiveProfileDropdown = () => {
                                     <HomeIcon class="h-5 w-5 mr-1 text-white" /> Muestras
                                 </NavLink>
 
-                                <NavLink :href="route('admin.countries.index')" :active="route('admin.countries.index')" :class="{
-                                    'text-white': true,
-                                    'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                    'border-b-2 border-white': route('admin.countries.index'),
-                                    'border-transparent': !route().current('admin.countries.index')
-                                }">
+                                <NavLink :href="route('admin.countries.index')"
+                                    :active="route().current('admin.countries.index')" :class="{
+                                        'text-white': true,
+                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+
+                                        'border-b-2 border-white': route().current('admin.countries.index'),
+                                        'border-transparent': !route().current('admin.countries.index')
+                                    }">
                                     <HomeIcon class="h-5 w-5 mr-1 text-white" /> Paises
+                                </NavLink>
+                                <NavLink :href="route('admin.roles.index')" :active="route().current('admin.roles.*')"
+                                    :class="{ // Usamos .* para que esté activo en index, create, edit, etc.
+                                        'text-white': true,
+                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                        'border-b-2 border-white': route().current('admin.roles.*'), // Usa .* también aquí
+                                        'border-transparent': !route().current('admin.roles.*')
+                                    }">
+                                    <UserCircleIcon class="h-5 w-5 mr-1 text-white" /> Roles
+                                </NavLink>
+                                <NavLink :href="route('admin.companies.index')"
+                                    :active="route().current('admin.companies.*')" :class="{
+                                        'text-white': true,
+                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                        'border-b-2 border-white': route().current('admin.companies.*'), // Usa .* también aquí
+                                        'border-transparent': !route().current('admin.companies.*')
+                                    }">
+                                    <HomeIcon class="h-5 w-5 mr-1 text-white" /> Empresas
+                                </NavLink>
+                                <NavLink :href="route('admin.users.index')" :active="route().current('admin.users.*')"
+                                    :class="{
+                                        'text-white': true,
+                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                        'border-b-2 border-white': route().current('admin.users.*'), // Resalta con borde si la ruta actual es users.*
+                                        'border-transparent': !route().current('admin.users.*')
+                                    }">
+                                    <UserIcon class="h-5 w-5 mr-1 text-white" /> Usuarios
                                 </NavLink>
                             </div>
                         </div>
@@ -117,14 +146,52 @@ const toggleResponsiveProfileDropdown = () => {
                         </ResponsiveNavLink>
 
 
-                        <ResponsiveNavLink :href="route('admin.countries.index')" :active="route().current('admin.countries.index')" :class="{
-                            'flex items-center px-4 py-2 text-white': true,
-                            'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                            // Cambiado para usar fondo en lugar de borde lateral blanco cuando está activo
-                            'bg-[#3a4c6b]': route().current('admin.countries.index'),
-                            'border-transparent': !route().current('admin.countries.index') // Mantén el borde transparente si no está activo
-                        }">
+                        <ResponsiveNavLink :href="route('admin.countries.index')"
+                            :active="route().current('admin.countries.index')" :class="{
+                                'flex items-center px-4 py-2 text-white': true,
+                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                // Cambiado para usar fondo en lugar de borde lateral blanco cuando está activo
+                                'bg-[#3a4c6b]': route().current('admin.countries.index'),
+                                'border-transparent': !route().current('admin.countries.index') // Mantén el borde transparente si no está activo
+                            }">
                             <HomeIcon class="h-5 w-5 mr-1 text-white" /> Muestras
+                        </ResponsiveNavLink>
+
+                        <ResponsiveNavLink :href="route('admin.countries.index')"
+                            :active="route().current('admin.countries.index')" :class="{
+                                'flex items-center px-4 py-2 text-white': true,
+                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                'bg-[#3a4c6b]': route().current('admin.countries.index'),
+                                'border-transparent': !route().current('admin.countries.index')
+                            }">
+                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Paises
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink :href="route('admin.roles.index')" :active="route().current('admin.roles.*')"
+                            :class="{ // Usamos .*
+                                'flex items-center px-4 py-2 text-white': true,
+                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                'bg-[#3a4c6b]': route().current('admin.roles.*'), // Usa .* también aquí
+                                'border-transparent': !route().current('admin.roles.*')
+                            }">
+                            <UserCircleIcon class="h-5 w-5 mr-1 text-white" /> Roles
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink :href="route('admin.companies.index')"
+                            :active="route().current('admin.companies.*')" :class="{
+                                'flex items-center px-4 py-2 text-white': true,
+                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                'bg-[#3a4c6b]': route().current('admin.companies.*'), // Usa .* también aquí (fondo para activo)
+                                'border-transparent': !route().current('admin.companies.*') // Borde transparente si no está activo
+                            }">
+                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Empresas
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink :href="route('admin.users.index')" :active="route().current('admin.users.*')"
+                            :class="{
+                                'flex items-center px-4 py-2 text-white': true,
+                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
+                                'bg-[#3a4c6b]': route().current('admin.users.*'), // Resalta con fondo si la ruta actual es users.*
+                                'border-transparent': !route().current('admin.users.*')
+                            }">
+                            <UserIcon class="h-5 w-5 mr-1 text-white" /> Usuarios
                         </ResponsiveNavLink>
                     </div>
 

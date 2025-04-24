@@ -68,7 +68,7 @@ class User extends Authenticatable
      */
     public function company(): BelongsTo
     {
-        return $this->belongsTo(Company::class)->nullable();
+        return $this->belongsTo(Company::class);
     }
 
     /**

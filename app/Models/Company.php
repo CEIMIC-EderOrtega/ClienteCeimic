@@ -10,10 +10,22 @@ class Company extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['razon_social', 'nombre_fantasia', 'otros_datos'];
+    // Actualiza los campos permitidos para asignación masiva
+    protected $fillable = [
+        'razon_social',
+        'nombre_comercial', // Renombrado
+        'tipo_identificacion', // Nuevo
+        'numero_identificacion', // Nuevo
+        'domicilio_legal', // Nuevo
+        'telefono', // Nuevo
+        'correo_electronico', // Nuevo
+        'sitio_web', // Nuevo
+        // 'otros_datos' eliminado
+    ];
 
+    // Elimina el cast para 'otros_datos'
     protected $casts = [
-        'otros_datos' => 'json',
+        // Ya no necesitamos el cast para otros_datos
     ];
 
     /**
