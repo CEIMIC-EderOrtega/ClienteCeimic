@@ -6,14 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
+     /**
      * Run the migrations.
      */
     public function up(): void
     {
         Schema::create('role_user', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
+            // $table->id(); // No es necesario un ID autoincremental aquí
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('role_id')->constrained()->onDelete('cascade');
+            $table->primary(['user_id', 'role_id']); // Clave primaria compuesta
+            $table->timestamps(); // Opcional si quieres saber cuándo se asignó el rol
         });
     }
 
