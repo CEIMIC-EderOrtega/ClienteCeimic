@@ -591,9 +591,6 @@ function clearFilters() {
     opacity: 0;
 }
 
-.app-main-container {
-    /* height/overflow si es necesario */
-}
 
 .card {
     background-color: #fff;
@@ -602,22 +599,6 @@ function clearFilters() {
     padding: 0.75rem !important;
 }
 
-/* Header responsive (se mantiene y se ajusta el layout con flex/order) */
-.datatable-header-responsive {
-    /* Tailwind flex flex-wrap items-center mb-4 gap-2 */
-}
-
-.responsive-button-group-always-visible {
-    /* Tailwind flex gap-2 */
-}
-
-.responsive-button-group-actions {
-    /* Tailwind flex flex-wrap gap-2 */
-}
-
-.global-filter-responsive {
-    /* Tailwind relative flex-grow (en responsive) */
-}
 
 @media (max-width: 960px) {
     .datatable-header-responsive {
@@ -647,18 +628,11 @@ function clearFilters() {
     }
 }
 
-/* Panel de Detalle (se mantiene) */
-.detail-view-container {
-    /* estilos */
-}
-
 .detail-header {
     border-bottom: 1px solid var(--surface-border, #dee2e6);
 }
 
-.detail-content {
-    /* grid y gap definidos con Tailwind */
-}
+
 
 .info-card {
     background-color: var(--surface-ground, #f8f9fa);
