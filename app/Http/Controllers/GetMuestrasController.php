@@ -8,6 +8,7 @@ use Inertia\Inertia; // Si usas Inertia para la vista que hace la llamada
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth; // <--- Importa la fachada Auth
 use Illuminate\Http\JsonResponse; // Para el tipo de retorno JSON
+use Exception; // Importar Exception
 
 class GetMuestrasController extends Controller
 {
@@ -18,27 +19,70 @@ class GetMuestrasController extends Controller
         $this->myLimsService = $myLimsService;
     }
 
-    /**
-     * Renderiza Dashboard con TODOS los registros cargados de una vez.
+  /**
+     * Renderiza Dashboard con registros basados en la unidad y filtros.
+     */
+   /**
+     * Renderiza Dashboard con registros basados en la unidad y filtros.
+     * Maneja peticiones GET (carga inicial) y POST (filtrado).
      */
     public function index(Request $request)
     {
         $email = Auth::user()->email;
+
+        // *** CAMBIO AQUÍ: Obtener filtros y unidad según el método ***
+        if ($request->isMethod('post')) {
+            // Para peticiones POST (filtrado desde Vue), tomar datos del body
+            $unit = $request->input('unit', 'Enviro');
+            $filters = $request->except('unit'); // Tomar todo excepto 'unit' como filtros
+        } else {
+            // Para peticiones GET (carga inicial), tomar datos del query string
+            $unit = $request->query('unit', 'Enviro');
+            $filters = $request->query();
+            unset($filters['unit']); // Quitar unit si viene en query string
+        }
+
+        Log::info("Cargando dashboard", [
+            'method' => $request->method(),
+            'email' => $email,
+            'unit' => $unit,
+            'filters' => $filters
+        ]);
+
         try {
-            $registros = $this->myLimsService->obtenerTodosRegistros($email);
-            // \Log::info('Registros obtenidos del servicio:', ['cantidad' => count($registros ?? [])]);
+            if ($unit === 'Food') {
+                $registros = $this->myLimsService->obtenerRegistrosFoodFiltrados($email, $filters);
+                Log::info("Registros Food obtenidos:", ['count' => count($registros)]);
+            } else { // 'Enviro'
+                 // Asegúrate que obtenerRegistrosEnviro acepte filtros si es necesario
+                 // o modifícalo para aceptar $filters
+                 // $registros = $this->myLimsService->obtenerRegistrosEnviro($email, $filters); // Ejemplo si aceptara filtros
+                 $registros = $this->myLimsService->obtenerRegistrosEnviro($email); // Manteniendo versión original por ahora
+                 Log::info("Registros Enviro obtenidos:", ['count' => count($registros)]);
+            }
 
+            // Pasar los registros Y los filtros actuales a la vista
+            // Los filtros pasados a Inertia::render determinarán el estado inicial de MuestrasFilters
             return Inertia::render('Dashboard', [
-                'registros' => $registros
+                'registros' => $registros,
+                // Pasamos los filtros que se usaron (sean de query o de post)
+                'filters' => $filters + ['unit' => $unit], // Añadimos 'unit' de vuelta para la prop `initialFilters`
+                'selectedUnit' => $unit, // Pasar la unidad explícitamente
+                'error' => null // Asegurarse de pasar null si no hay error
             ]);
-        } catch (\Exception $e) {
-            Log::error('Error al cargar muestras desde MyLimsService (index): ' . $e->getMessage(), ['exception' => $e]);
 
-            return back()->withErrors([
-                'error' => 'Error al cargar muestras: ' . $e->getMessage()
-            ]);
+        } catch (Exception $e) {
+             Log::error("Error al cargar muestras en GetMuestrasController ({$unit}): " . $e->getMessage(), ['exception' => $e]);
+             return Inertia::render('Dashboard', [
+                 'registros' => [],
+                 'filters' => $filters + ['unit' => $unit], // Pasar filtros aunque haya error
+                 'selectedUnit' => $unit,
+                 'error' => 'Error al cargar muestras. Intente de nuevo o contacte soporte.' // Mensaje genérico
+                 // 'error' => 'Error al cargar muestras: ' . $e->getMessage() // Opcional: Mensaje detallado (cuidado con exponer info sensible)
+             ]);
         }
     }
+
 
     /**
      * Procesa la solicitud para extraer laudos de muestras seleccionadas.

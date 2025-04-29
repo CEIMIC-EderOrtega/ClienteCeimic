@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\GetMuestrasController; // Asegúrate de importar el controlador
 use App\Http\Controllers\RoleController;
-use App\Http\Controllers\UserController as AdminUserController; // Alias para no confundir
+use App\Http\Controllers\UserController as AdminUserController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\GetResultsAmostrasController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -20,7 +22,8 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', [GetMuestrasController::class, 'index'])
+// *** CAMBIO AQUÍ: Aceptar GET y POST para el dashboard ***
+Route::match(['get', 'post'], '/dashboard', [GetMuestrasController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -29,34 +32,29 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // --- Nueva ruta para extraer laudos ---
+    // --- Ruta para extraer laudos (sin cambios) ---
     Route::post('/muestras/extraer-laudos', [GetMuestrasController::class, 'extraerLaudos'])
-        ->name('muestras.extraerLaudos'); // Le damos un nombre a la ruta
+        ->name('muestras.extraerLaudos');
+
+    // --- Ruta para resultados del detalle (sin cambios) ---
+    Route::post('/get-amostra-results', [GetResultsAmostrasController::class, 'getResults'])
+        ->name('muestras.getResults');
 });
 
-
-// --- Rutas del Panel de Administración ---
-
-// Agrupamos todas las rutas de administración bajo el prefijo '/admin'
-// y las protegemos con el middleware 'auth'.
-// El nombre de la ruta empezará por 'admin.'
+// --- Rutas del Panel de Administración (sin cambios) ---
 Route::prefix('admin')->middleware(['auth'])->name('admin.')->group(function () {
-
-    // Dashboard principal del área de administración
     Route::get('/', function () {
-        return Inertia::render('Admin/Dashboard'); // Debes crear esta vista Vue
-    })->name('dashboard'); // Ruta: admin.dashboard
-
-    // Rutas resource para CRUD de Países
-    Route::resource('countries', CountryController::class); // Rutas: admin.countries.index, .create, .store, .edit, .update, .destroy, .show
-
-    // Rutas resource para CRUD de Roles
-    Route::resource('roles', RoleController::class); // Rutas: admin.roles.*
-
-    // Rutas resource para CRUD de Empresas
-    Route::resource('companies', CompanyController::class); // Rutas: admin.companies.*
-
-    // Rutas resource para CRUD de Usuarios (gestionados desde admin)
-    Route::resource('users', AdminUserController::class); // Rutas: admin.users.*
+        return Inertia::render('Admin/Dashboard');
+    })->name('dashboard');
+    Route::resource('countries', CountryController::class);
+    Route::resource('roles', RoleController::class);
+    Route::resource('companies', CompanyController::class);
+    Route::resource('users', AdminUserController::class);
 });
-require __DIR__.'/auth.php';
+
+// --- Ruta validación email (sin cambios) ---
+Route::post('/check-registration-email', [RegisteredUserController::class, 'validateRegistrationEmail'])
+    ->name('register.checkEmail')
+    ->middleware('guest');
+
+require __DIR__ . '/auth.php';

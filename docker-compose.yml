@@ -1,53 +1,47 @@
-# docker-compose.yml (CORREGIDO - con volumen compartido y storage persistente)
+# docker-compose.yml
+version: '3.8'
 
 services:
-  # Servicio de la Aplicación (PHP-FPM + Código + Node/NPM Build)
   app:
     build:
-      context: . # Directorio actual donde está el Dockerfile
-      dockerfile: Dockerfile # Nombre del Dockerfile
-    container_name: mi_app_laravel # Nombre amigable para el contenedor
+      context: .
+      dockerfile: Dockerfile
+    container_name: tu_app_php
     restart: unless-stopped
     working_dir: /var/www/html
-    # Define un volumen anónimo para /var/www/html (para que Nginx acceda al código)
-    # Y un volumen nombrado para storage (para que los archivos subidos persistan).
     volumes:
-       - /var/www/html # <-- Volumen compartido con Nginx (el código de la imagen se copia aquí)
-       - laravel_storage:/var/www/html/storage # <-- Añadido: Volumen nombrado para la carpeta 'storage'
-
+      # Persistencia de storage para logs, cache y uploads
+      - app_storage:/var/www/html/storage
+      # Monta todo el código para poder hacer build de assets y ejecutar artisan
+      - ./:/var/www/html
+      # Asegura que Laravel lea el .env real
+      - ./.env:/var/www/html/.env:ro
+    # Inyecta las variables de .env en el entorno de Docker
     env_file:
-      - .env # Carga variables de entorno desde el archivo .env en el mismo directorio
+      - .env
     networks:
-      - laravel_network
+      - app_network
 
-  # Servicio del Servidor Web (Nginx)
-  webserver:
-    image: nginx:stable-alpine # Imagen oficial ligera de Nginx
-    container_name: mi_app_nginx
+  nginx:
+    image: nginx:alpine
+    container_name: tu_app_nginx
     restart: unless-stopped
-    ports:
-      # Mapea el puerto 8080 del HOST (tu máquina local o Windows Server) al puerto 80 del CONTENEDOR Nginx
-      # Puedes cambiar 8080 por 80 si no está ocupado en el servidor host
-      - "8080:80"
     volumes:
-      # Monta la configuración de Nginx que creamos en modo lectura (ro)
+      # Configuración de Nginx
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # Monta el MISMO volumen anónimo de '/var/www/html' que 'app' usa
-      # Esto le da acceso a Nginx a todo el código de la app (incluida public) que está en el volumen.
-      - /var/www/html:/var/www/html # <-- Volumen compartido con app (el código de la imagen)
-      # Generalmente Nginx no necesita montar el volumen de storage a menos que sirva archivos directamente desde ahí.
-
-    networks:
-      - laravel_network
+      # Servir solamente la carpeta public (incluye build/assets)
+      - ./public:/var/www/html/public:ro
+    ports:
+      - "8080:80"
     depends_on:
-      - app # Asegura que el contenedor 'app' se inicie antes que 'webserver'
+      - app
+    networks:
+      - app_network
 
-# Red interna para que los contenedores se comuniquen por nombre de servicio
 networks:
-  laravel_network:
+  app_network:
     driver: bridge
 
-# Volúmenes nombrados (¡Descomentado para storage persistente!)
-volumes: # <--- ¡Descomentada esta sección!
-  laravel_storage: # <--- ¡Descomentado este volumen nombrado!
+volumes:
+  app_storage:
     driver: local

@@ -48,7 +48,7 @@ RUN curl -O https://download.microsoft.com/download/e/4/e/e4e67866-dffd-428c-aac
  && gpg --verify mssql-tools_17.10.1.1-1_amd64.sig mssql-tools_17.10.1.1-1_amd64.apk \
  && apk add --allow-untrusted msodbcsql17_17.10.5.1-1_amd64.apk mssql-tools_17.10.1.1-1_amd64.apk \
  && rm -f msodbcsql17_17.10.5.1-1_amd64.apk mssql-tools_17.10.1.1-1_amd64.apk \
-        msodbcsql17_17.10.5.1-1_amd64.sig mssql-tools_17.10.1.1-1_amd64.sig
+       msodbcsql17_17.10.5.1-1_amd64.sig mssql-tools_17.10.1.1-1_amd64.sig
 
 # 4. Instalar extensiones PHP nativas
 RUN docker-php-ext-install -j$(nproc) \
@@ -84,8 +84,8 @@ COPY composer.json composer.lock ./
 # Esto asegura que los scripts de Composer tengan acceso a los archivos de la aplicación (como routes).
 COPY . .
 
-# Ejecutar composer install
-RUN composer install --no-interaction --no-dev --optimize-autoloader --prefer-dist
+# Ejecutar composer install (quitamos --no-dev para incluir dependencias como Pail si se requieren en artisan)
+RUN composer install --no-interaction --optimize-autoloader --prefer-dist
 
 # --- Etapa de Dependencias Frontend ---
 FROM base AS frontend_deps
@@ -108,14 +108,23 @@ COPY . .
 # 7. Construir assets de frontend con Vite
 RUN npm run build
 
-# 8. Optimizar Laravel para producción
+# PASO CLAVE AÑADIDO Y MOVIDO: Asegurarse de que las carpetas de cacheo y views existan y tengan permisos
+# Esto debe ir ANTES de los comandos artisan que usan esas carpetas.
+RUN mkdir -p /var/www/html/storage/framework/views \
+ && mkdir -p /var/www/html/storage/framework/cache \
+ && mkdir -p /var/www/html/storage/logs \
+ && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+ && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache \
+ && chmod -R 777 /var/www/html/storage/framework/views # 777 solo para views cache si 775 no basta
+
+# 8. Optimizar Laravel para producción (Ahora sí debería funcionar)
 RUN php artisan config:cache \
  && php artisan route:cache \
  && php artisan view:cache
 
-# 9. Establecer permisos para www-data
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
- && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# 9. (Opcional) El paso original de permisos ya lo hicimos antes, puedes comentarlo o eliminarlo.
+# RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+#  && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # 10. Exponer puerto de PHP-FPM y comando por defecto
 EXPOSE 9000

@@ -105,7 +105,7 @@ const toggleResponsiveProfileDropdown = () => {
                                     <template #content>
                                         <DropdownLink :href="route('profile.edit')"> Profile </DropdownLink>
                                         <DropdownLink :href="route('logout')" method="post" as="button">
-                                            Log Out
+                                            Cerrar session
                                         </DropdownLink>
                                     </template>
                                 </Dropdown>
@@ -218,7 +218,7 @@ const toggleResponsiveProfileDropdown = () => {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('logout')" method="post" as="button"
                                 class="px-4 py-2 text-white hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]">
-                                Log Out
+                                Cerrar session
                             </ResponsiveNavLink>
                         </div>
                     </div>
