@@ -33,6 +33,9 @@ const columnVisibility = ref({});
 const pagination = ref(null);
 const paginationHeight = ref(60);
 
+// --- FILTROS POR COLUMNA ---
+const columnFilters = ref({});
+
 // --- COLUMNAS (Tabla Principal) ---
 const definedColumns = ref([
     { field: "Grupo", header: "Grupo" },
@@ -95,6 +98,10 @@ function initializeColumnVisibility() {
         vis[c.field] = columnVisibility.value.hasOwnProperty(c.field)
             ? columnVisibility.value[c.field]
             : !defaultHiddenColumns.has(c.field);
+        // Inicializa el filtro para cada columna
+        if (columnFilters.value[c.field] === undefined) {
+            columnFilters.value[c.field] = "";
+        }
     });
     columnVisibility.value = vis;
 }
@@ -114,7 +121,17 @@ function closeColumnToggleOnClickOutside(event) {
 // --- PAGINACIÓN (CLIENT-SIDE - Solo para vista tabla) ---
 const currentPage = ref(1);
 const itemsPerPage = ref(props.rows);
-const filteredItems = computed(() => props.items);
+// Se aplica el filtro además de la paginación:
+const filteredItems = computed(() => {
+    return props.items.filter(item => {
+        return definedColumns.value.every(c => {
+            const filtro = columnFilters.value[c.field]?.toLowerCase();
+            if (!filtro) return true;
+            const valor = item[c.field] ? String(item[c.field]).toLowerCase() : "";
+            return valor.includes(filtro);
+        });
+    });
+});
 
 const totalPages = computed(() => {
     const total = filteredItems.value.length;
@@ -333,7 +350,6 @@ watch(() => props.items, () => {
     }
     clearLocalState();
 }, { deep: false });
-
 </script>
 
 <style scoped>
@@ -411,125 +427,26 @@ watch(() => props.items, () => {
 /* Estilos info cards en detalle */
 .info-card {
     background-color: #f9fafb;
-    /* bg-gray-50 */
     padding: 0.75rem;
-    /* p-3 */
     border-radius: 0.375rem;
-    /* rounded-md */
     border: 1px solid #f3f4f6;
-    /* border-gray-100 */
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    /* shadow-sm */
 }
 
-/* --- ESTILOS PARA LA TRANSICIÓN DE VISTA (AÑADIR ESTO) --- */
+/* Transición de Vista */
 .fade-view-enter-active,
 .fade-view-leave-active {
     transition: opacity 0.3s ease-out;
-    /* Puedes ajustar la duración (0.3s) y el timing (ease-out) */
 }
 
 .fade-view-enter-from,
 .fade-view-leave-to {
     opacity: 0;
-    /* Hace que el elemento sea invisible al inicio/final */
-}
-
-/* Opcional: Para evitar saltos de layout si la altura cambia mucho.
-   Puede que no sea necesario o requiera ajustar el contenedor padre. */
-/*
-.fade-view-leave-active {
-  position: absolute;
-  width: 100%;
-}
-*/
-
-/* --- OTROS ESTILOS (ASEGÚRATE QUE ESTÉN PRESENTES) --- */
-
-/* Estilos tabla compacta */
-.compact-datatable th,
-.compact-datatable td {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    vertical-align: middle;
-}
-
-/* Transición botones acción */
-.fade-actions-enter-active,
-.fade-actions-leave-active {
-    transition: opacity 0.3s ease-in-out;
-}
-
-.fade-actions-enter-from,
-.fade-actions-leave-to {
-    opacity: 0;
-}
-
-/* Fijar cabecera tabla */
-.compact-datatable thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background-color: #f9fafb;
-    border-bottom-width: 2px;
-}
-
-/* Scrollbar */
-.scrollable-area::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-}
-
-.scrollable-area::-webkit-scrollbar-thumb {
-    background-color: #a0aec0;
-    border-radius: 4px;
-}
-
-.scrollable-area::-webkit-scrollbar-thumb:hover {
-    background-color: #718096;
-}
-
-.scrollable-area::-webkit-scrollbar-track {
-    background-color: #edf2f7;
-}
-
-/* Fila seleccionada */
-.bg-blue-50 {
-    background-color: #EBF8FF;
-}
-
-.hover\:bg-blue-100\/50:hover {
-    background-color: rgba(219, 234, 254, 0.5);
-}
-
-/* Estilos Vista Detalles (No Modal) */
-.detail-view-container {
-    padding: 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
-    background-color: #ffffff;
-}
-
-.detail-view-header {
-    padding-bottom: 0.75rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.info-card {
-    background-color: #f9fafb;
-    padding: 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid #f3f4f6;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 </style>
 
 <template>
     <div>
-
-
         <div v-if="isGenerating"
             class="fixed top-4 right-4 bg-yellow-100 text-yellow-800 p-3 rounded shadow-lg z-50 border flex items-center">
             <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -541,14 +458,9 @@ watch(() => props.items, () => {
             Generando informe…
         </div>
 
-
         <Transition name="fade-view" mode="out-in">
-
-
             <div v-if="!showDetailPanel" key="tableView" class="datatable-container">
-
                 <div class="datatable-header-responsive flex flex-wrap items-center mb-4 gap-2">
-
                     <div class="flex flex-grow items-center gap-2 order-1 md:order-1 w-full md:w-auto">
                         <Transition name="fade-actions">
                             <div>
@@ -556,7 +468,7 @@ watch(() => props.items, () => {
                                     <button type="button" @click="ejecutarInforme" :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60">
                                         <ArrowDownTrayIcon class="w-4 h-4 mr-1 inline-block" /> Informe ({{
-                                            selectedItems.length }})
+                                        selectedItems.length }})
                                     </button>
                                     <button type="button" @click="ejecutarCadena" :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60">
@@ -599,6 +511,7 @@ watch(() => props.items, () => {
                     :style="{ maxHeight: `calc(85vh - 180px - ${paginationHeight}px)` }">
                     <table class="min-w-full border-collapse compact-datatable">
                         <thead class="bg-gray-100">
+                            <!-- Encabezado de columnas -->
                             <tr>
                                 <th class="p-2 text-center border-b-2 bg-gray-100 sticky top-0 z-10 w-10">
                                     <input type="checkbox" title="Seleccionar Todos (Página)"
@@ -612,6 +525,16 @@ watch(() => props.items, () => {
                                         class="p-2 text-start border-b-2 bg-gray-100 font-bold text-sm sticky top-0 z-10 whitespace-nowrap"
                                         :style="{ 'min-width': col.field === 'Solicitante' ? '12rem' : '8rem' }">
                                         <span class="truncate">{{ col.header }}</span>
+                                    </th>
+                                </template>
+                            </tr>
+                            <!-- Fila de filtros -->
+                            <tr class="bg-gray-50">
+                                <th class="p-1"></th>
+                                <template v-for="col in definedColumns" :key="'filtro-' + col.field">
+                                    <th v-if="columnVisibility[col.field]" class="p-1">
+                                        <input type="text" v-model="columnFilters[col.field]" placeholder="Filtrar"
+                                            class="w-full border rounded px-1 py-0.5 text-xs" />
                                     </th>
                                 </template>
                             </tr>
@@ -671,9 +594,7 @@ watch(() => props.items, () => {
                 </div>
             </div>
 
-
             <div v-else key="detailView" class="detail-view-container">
-
                 <div class="detail-view-header flex justify-between items-center">
                     <h2 class="text-xl font-semibold flex items-center gap-2 text-gray-800">
                         <InformationCircleIcon class="w-6 h-6 text-blue-600" /> Detalle Muestra: {{
@@ -686,9 +607,7 @@ watch(() => props.items, () => {
                         <ArrowLeftIcon class="w-4 h-4" /> Volver a Tabla
                     </button>
                 </div>
-
                 <div>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                         <div class="info-card">
                             <h3
@@ -763,8 +682,8 @@ watch(() => props.items, () => {
                                     <tr>
                                         <th v-for="col in resultsColumns" :key="'res-h-' + col.field"
                                             class="p-2 text-start border-b font-bold text-xs sticky top-0 z-10 bg-gray-100">
-                                            {{
-                                                col.header }}</th>
+                                            {{ col.header }}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y">
@@ -784,8 +703,6 @@ watch(() => props.items, () => {
                     </div>
                 </div>
             </div>
-
         </Transition>
-
     </div>
 </template>

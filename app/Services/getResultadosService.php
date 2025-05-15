@@ -18,17 +18,17 @@ class getResultadosService
      */
     public function obtenerResultados(string $cdamostra): array
     {
-      
+
         if (empty($cdamostra)) {
             Log::warning('Intento de obtener resultados con cdamostra vacío.');
             throw new \InvalidArgumentException("No se seleccionó Muestra. El código de muestra está vacío.");
         }
 
-      
+
         Log::info("Iniciando consulta para obtener resultados de la muestra: {$cdamostra}");
 
         try {
-           
+
             $results = DB::connection('mylims')
                 ->select("SELECT DISTINCT
                             dbo.numero(a.cdamostra, 0) AS NUMERO,
@@ -54,9 +54,9 @@ class getResultadosService
                             AND a.cdamostra = ?
                         ORDER BY
                             1, 3, 4
-                    ", [$cdamostra]); 
+                    ", [$cdamostra]);
 
-           
+
             if (!empty($results)) {
                 Log::info("Consulta exitosa. Se encontraron " . count($results) . " resultados para la muestra: {$cdamostra}");
                 return ['status' => 'ok', 'results' => $results];
