@@ -1,86 +1,65 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'; // Asumiendo que tu layout se llama así
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { defineProps, ref } from 'vue';
-import { router } from '@inertiajs/vue3'; // Importar router de Inertia
+import { router } from '@inertiajs/vue3';
 
-import MuestrasTable from '@/Components/MuestrasTable.vue'; // Asegúrate que la ruta sea correcta
-import MuestrasFilters from '@/Components/MuestrasFilters.vue'; // Asegúrate que la ruta sea correcta
+import MuestrasTable from '@/Components/MuestrasTable.vue';
+import MuestrasFilters from '@/Components/MuestrasFilters.vue'; // Ya tienes esto
 
 const props = defineProps({
     registros: {
         type: Array,
         default: () => []
     },
-    // Recibe los filtros aplicados desde el backend (usados para la carga actual)
-    filters: {
+    filters: { // Estos son los filtros que vienen del backend tras una carga/filtrado
         type: Object,
-        default: () => ({})
+        // Asegurar que el default inicial refleje la unidad 'Food'
+        default: () => ({ unit: 'Food', status: '3' /* otros defaults si los tienes */ })
     },
-    // Recibe la unidad seleccionada desde el backend
-    selectedUnit: {
+    selectedUnit: { // Esta prop ahora siempre será 'Food' desde el controlador
         type: String,
-        default: 'Enviro' // O el default que definas en el controlador
+        default: 'Food' // Default en el frontend
     },
-    // Recibe posibles errores del backend
     error: {
         type: String,
         default: null
     }
 });
 
-const loading = ref(false); // Estado de carga local para feedback visual
+const loading = ref(false);
 
 // Función para aplicar filtros haciendo una petición POST a Inertia
-const applyFilters = (newFilters) => {
-    console.log('Aplicando filtros (POST) desde Dashboard:', newFilters);
-    loading.value = true; // Activar carga local
+// Esta función es llamada por el evento @update-filters de MuestrasFilters
+const applyFilters = (newFilters) => { // newFilters ya viene con unit: 'Food'
+    console.log('Aplicando filtros (POST) desde Dashboard (disparado por botón):', newFilters);
+    loading.value = true;
 
-    // Ya no es tan necesario limpiar filtros nulos/vacíos para POST,
-    // pero puedes mantenerlo si tu backend lo prefiere.
-    // const cleanFilters = {};
-    // for (const key in newFilters) {
-    //     if (newFilters[key] !== null && newFilters[key] !== '') {
-    //         cleanFilters[key] = newFilters[key];
-    //     }
-    // }
-
-    // *** CAMBIO AQUÍ: Usar router.post ***
-    // Enviamos los filtros directamente en el cuerpo de la petición.
-    // El backend (Controlador) debe leerlos desde $request->input() o $request->all().
-    router.post(route('dashboard'), newFilters, { // Ruta 'dashboard' ahora acepta POST
-        preserveState: true,    // Mantiene estado local de Vue (como scroll, datos no afectados)
-        preserveScroll: true,   // Mantiene posición de scroll
-        replace: true,          // Reemplaza entrada en historial para no acumular filtros con botón atrás/adelante
+    router.post(route('dashboard'), newFilters, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
         onStart: () => { loading.value = true; },
         onFinish: () => { loading.value = false; },
         onError: (errors) => {
             console.error('Error de Inertia al aplicar filtros (POST):', errors);
             loading.value = false;
-            // Considera mostrar un mensaje al usuario aquí si la petición POST falla.
-            // Podrías usar una librería de notificaciones o un estado local.
-            // Ejemplo: alert('Hubo un error al aplicar los filtros.');
         }
     });
 };
 </script>
 
 <template>
-
-    <Head title="Dashboard Muestras" />
-
-    <AuthenticatedLayout>
+    <Head title="Dashboard Muestras Food" /> <AuthenticatedLayout>
         <div class="py-8 md:py-12">
             <div class="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
-
                 <div v-if="props.error"
                     class="mb-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm shadow">
                     <strong>Error:</strong> {{ props.error }}
                 </div>
 
                 <div class="bg-white overflow-hidden shadow-lg sm:rounded-lg p-4">
-
-                     <MuestrasFilters :initial-filters="props.filters" @update-filters="applyFilters" />
+                    <MuestrasFilters :initial-filters="props.filters" @update-filters="applyFilters" />
 
                     <div v-if="loading" class="text-center py-10 text-gray-500">
                         <svg class="animate-spin h-6 w-6 inline-block mr-2 text-blue-600"
@@ -95,13 +74,11 @@ const applyFilters = (newFilters) => {
                     </div>
 
                     <div v-show="!loading">
-                         <MuestrasTable :items="props.registros" :rows="20" />
-
+                        <MuestrasTable :items="props.registros" :rows="20" />
                         <div v-if="!loading && props.registros.length === 0 && !props.error" class="p-6 text-center text-gray-500">
                             No se encontraron registros con los filtros aplicados.
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>

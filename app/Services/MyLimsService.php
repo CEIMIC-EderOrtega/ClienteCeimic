@@ -41,6 +41,94 @@ class MyLimsService
             throw new Exception("Error al obtener registros Enviro: " . $e->getMessage());
         }
     }
+   public function FilterNewFood(string $email, array $filters): array
+    {
+        //dd("FilterNewFood: " . $email . " - " . json_encode($filters));
+        // Obtener el ID de estado como string desde los filtros (ej: "2", "3", "4", "10")
+        // Si no viene $filters['status'], por defecto será "4".
+        $status_id_string = Arr::get($filters, 'status', '4');
+
+        // Validar que el ID de estado sea uno de los conocidos para evitar errores.
+        // Estos son los values que usa tu <select> en MuestrasFilters.vue
+        $valid_status_ids = ['2', '10', '3', '4'];
+        if (!in_array($status_id_string, $valid_status_ids)) {
+            $status_id_string = '4'; // Si no es válido, usar '4' (Publicado) como defecto seguro.
+        }
+
+        // *** LA CORRECCIÓN MÁS IMPORTANTE ESTÁ AQUÍ ***
+        // Convertir el ID de estado (que es un string como "4") a un entero (int).
+        // Esto es lo que el Stored Procedure espera para @Sit.
+        $status_param_for_sp = (int) $status_id_string;
+
+        // El resto de la lógica para obtener otros filtros y fechas:
+        $today = Carbon::today();
+        $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
+        $defaultHasta = $today->format('Y-m-d');
+        $desde = Carbon::parse(Arr::get($filters, 'desde', $defaultDesde))->startOfDay();
+        $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
+        $grupo = Arr::get($filters, 'search_grupo');
+        $processo = Arr::get($filters, 'search_processo');
+        $numero = Arr::get($filters, 'search_numero'); // Se envía como string o null, SP lo recibe como VARCHAR
+        $idamostra = Arr::get($filters, 'search_idamostra');
+        $solicitante = Arr::get($filters, 'search_solicitante');
+        $tipo = Arr::get($filters, 'search_tipo');
+        $cdamostra = Arr::get($filters, 'search_cdamostra');
+
+        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 con parámetros:', [
+            'Sit_INT_param' => $status_param_for_sp, // Se loguea el entero que se enviará
+            'Solicitante' => $solicitante,
+            'Grupo' => $grupo,
+            'Tipo' => $tipo,
+            'Cdamostra' => $cdamostra,
+            'Idamostra' => $idamostra,
+            'Processo' => $processo,
+            'Numero' => $numero, // $numero sigue siendo string o null aquí, SP lo maneja
+            'Desde' => $desde->toDateTimeString(),
+            'Hasta' => $hasta->toDateTimeString(),
+        ]);
+
+        try {
+            $results = DB::connection('mylims')->select(
+                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?',
+                [
+                    $status_param_for_sp, // *** AQUÍ SE PASA EL ENTERO ***
+                    $solicitante,
+                    $grupo,
+                    $tipo,
+                    $cdamostra,
+                    $idamostra,
+                    $processo,
+                    $numero,              // Se pasa el string o null que el SP espera como VARCHAR
+                    $desde,
+                    $hasta
+                ]
+            );
+
+            return collect($results)->map(function ($item) {
+                return (array) $item;
+            })->all();
+
+        } catch (Exception $e) {
+            // Tu log de error
+            Log::error("Error en MyLimsService::CLink_obtenerRegistrosFoodFiltrados1", [
+                'input_filters' => $filters,
+                'params_sent_to_sp' => [
+                    'Sit' => $status_param_for_sp,
+                    'Solicitante' => $solicitante,
+                    'Grupo' => $grupo,
+                    'Tipo' => $tipo,
+                    'Cdamostra' => $cdamostra,
+                    'Idamostra' => $idamostra,
+                    'Processo' => $processo,
+                    'Numero' => $numero,
+                    'Desde' => $desde->toDateTimeString(),
+                    'Hasta' => $hasta->toDateTimeString(),
+                ],
+                'exception_message' => $e->getMessage()
+            ]);
+            throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
+        }
+    }
 
     /**
      * Obtiene registros para la unidad 'Food' aplicando filtros complejos.
@@ -49,7 +137,7 @@ class MyLimsService
     public function obtenerRegistrosFoodFiltrados(string $email, array $filters): array
     {
         $statusLogicMap = [
-            '3' => 'finalizada',
+
             '4' => 'publicada_no_enviada',
             '111' => 'enviada_portal',
             'finalizada' => 'finalizada',

@@ -17,13 +17,6 @@ import LogoCeimic from "@/assets/images/logo_ceimic.png";
 import {
     EnvelopeIcon, // Icono para Email
     LockClosedIcon, // Icono para Password
-    // Importa otros iconos si los necesitas aquí:
-    // HomeIcon,
-    // PlusCircleIcon,
-    // PencilIcon,
-    // TrashIcon,
-    // CheckIcon,
-    // XMarkIcon,
 } from '@heroicons/vue/24/outline'; // O '20/solid' si prefieres sólidos. Asegúrate de usar el tamaño correcto.
 
 

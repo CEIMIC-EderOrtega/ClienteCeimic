@@ -468,7 +468,7 @@ watch(() => props.items, () => {
                                     <button type="button" @click="ejecutarInforme" :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60">
                                         <ArrowDownTrayIcon class="w-4 h-4 mr-1 inline-block" /> Informe ({{
-                                        selectedItems.length }})
+                                            selectedItems.length }})
                                     </button>
                                     <button type="button" @click="ejecutarCadena" :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60">
@@ -599,7 +599,7 @@ watch(() => props.items, () => {
                     <h2 class="text-xl font-semibold flex items-center gap-2 text-gray-800">
                         <InformationCircleIcon class="w-6 h-6 text-blue-600" /> Detalle Muestra: {{
                             detailRecord['Id.Amostra'] ||
-                        detailRecord.cdamostra }}
+                            detailRecord.cdamostra }}
                     </h2>
                     <button type="button"
                         class="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 p-2 rounded hover:bg-blue-50"
