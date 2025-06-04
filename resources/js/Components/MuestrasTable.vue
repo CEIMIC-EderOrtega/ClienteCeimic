@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import axios from 'axios';
 import { route } from 'ziggy-js';
+import * as XLSX from 'xlsx'; // <-- IMPORTAR XLSX
 import {
     CogIcon,
     ArrowDownTrayIcon,
@@ -20,6 +21,59 @@ const props = defineProps({
     rows: { type: Number, default: 10 },
 });
 
+// Definición de estilos para el Excel con enfoque UX/UI mejorado
+const excelStyles = {
+    titleSection: { // Para "Información de la Muestra" y "Resultados del Análisis"
+        font: { name: "Calibri", sz: 14, bold: true, color: { rgb: "FFFFFF" } }, // Letra blanca
+        fill: { fgColor: { rgb: "2F5496" } }, // Azul oscuro corporativo
+        alignment: { horizontal: "left", vertical: "center", wrapText: true },
+        border: {
+            bottom: { style: "medium", color: { rgb: "1F3864" } } // Borde inferior más oscuro
+        }
+    },
+    sampleInfoLabel: { // Para etiquetas como "Id. Muestra:"
+        font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "404040" } }, // Gris oscuro para la etiqueta
+        alignment: { horizontal: "right", vertical: "center" },
+        fill: { fgColor: { rgb: "F2F2F2" } } // Fondo gris muy claro para agrupar
+    },
+    sampleInfoValue: { // Para los valores de la información de la muestra
+        font: { name: "Calibri", sz: 11, color: { rgb: "000000" } }, // Negro para el valor
+        alignment: { horizontal: "left", vertical: "center" },
+        fill: { fgColor: { rgb: "F2F2F2" } } // Mismo fondo que la etiqueta
+    },
+    resultsTableHeader: { // Para las cabeceras de la tabla de resultados
+        font: { name: "Calibri", sz: 12, bold: true, color: { rgb: "FFFFFF" } }, // Letra blanca
+        fill: { fgColor: { rgb: "4472C4" } }, // Azul medio corporativo
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: {
+            top: { style: "thin", color: { rgb: "B0B0B0" } },
+            bottom: { style: "thin", color: { rgb: "B0B0B0" } },
+            left: { style: "thin", color: { rgb: "B0B0B0" } },
+            right: { style: "thin", color: { rgb: "B0B0B0" } }
+        }
+    },
+    resultsTableCell: { // Para las celdas de datos (filas impares)
+        font: { name: "Calibri", sz: 10, color: { rgb: "333333" } }, // Gris oscuro para el texto
+        alignment: { horizontal: "left", vertical: "center" }, // Alinear a la izquierda por defecto
+        border: {
+            top: { style: "thin", color: { rgb: "D9D9D9" } },
+            bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+            left: { style: "thin", color: { rgb: "D9D9D9" } },
+            right: { style: "thin", color: { rgb: "D9D9D9" } }
+        }
+    },
+    resultsTableCellAlt: { // Estilo alternativo para filas (efecto cebra - filas pares)
+        font: { name: "Calibri", sz: 10, color: { rgb: "333333" } },
+        fill: { fgColor: { rgb: "E6F0F9" } }, // Azul muy pálido para el fondo alterno
+        alignment: { horizontal: "left", vertical: "center" },
+        border: {
+            top: { style: "thin", color: { rgb: "D9D9D9" } },
+            bottom: { style: "thin", color: { rgb: "D9D9D9" } },
+            left: { style: "thin", color: { rgb: "D9D9D9" } },
+            right: { style: "thin", color: { rgb: "D9D9D9" } }
+        }
+    }
+};
 // --- ESTADOS ---
 const sampleResults = ref([]);
 const isLoadingResults = ref(false);
@@ -43,13 +97,13 @@ const definedColumns = ref([
     { field: "Numero", header: "Numero" },
     { field: "Id. Amostra", header: "Id. Amostra" },
     { field: "Tipo Amostra", header: "Tipo Amostra" },
+    { field: "cdamostra", header: "cdamostra" },
     { field: "Solicitante", header: "Solicitante" },
     { field: "Coleta", header: "Coleta" },
     { field: "Recepcao", header: "Recepcao" },
     { field: "Previsao", header: "Previsao" },
     { field: "Situacao", header: "Situacao" },
     { field: "Data_Situacao", header: "Data_Situacao" },
-    { field: "cdamostra", header: "cdamostra" },
     { field: "cdunidade", header: "cdunidade" },
     { field: "moroso", header: "Moroso" },
     { field: "mrl", header: "MRL" },
@@ -90,6 +144,168 @@ watch(detailRecord, (newDetailRecord, oldDetailRecord) => {
     }
 }, { deep: true });
 
+// --- NUEVO MÉTODO PARA EXPORTAR A EXCEL ---
+async function exportToExcel() {
+    if (!detailRecord.value || typeof detailRecord.value !== 'object' || Object.keys(detailRecord.value).length === 0) {
+        alert("No hay datos de detalle de muestra para exportar.");
+        return;
+    }
+
+    try {
+        const muestraInfoData = [];
+        muestraInfoData.push(["Información de la Muestra"]);
+
+        const camposDetalleExportar = [
+            { field: "Id. Amostra", label: "Id. Muestra" },
+            { field: "cdamostra", label: "Código Interno (cdamostra)" },
+            { field: "Grupo", label: "Grupo" },
+            { field: "Processo", label: "Proceso" },
+            { field: "Numero", label: "Número" },
+            { field: "Tipo Amostra", label: "Tipo Muestra" },
+            { field: "Solicitante", label: "Solicitante" },
+            { field: "Coleta", label: "Fecha Colecta" },
+            { field: "Recepcao", label: "Fecha Recepción" },
+            { field: "Previsao", label: "Fecha Previsión" },
+            { field: "Situacao", label: "Situación" },
+            { field: "Data_Situacao", label: "Fecha Situación" },
+            { field: "moroso", label: "Moroso" },
+            { field: "mrl", label: "MRL" },
+            { field: "mercados", label: "Mercados" },
+            { field: "retailers", label: "Retailers" },
+        ];
+
+        camposDetalleExportar.forEach(item => {
+            const value = detailRecord.value[item.field];
+            if (value !== null && value !== undefined && value !== '') {
+                muestraInfoData.push([item.label + ":", value]);
+            }
+        });
+        muestraInfoData.push([]); // Fila vacía como espaciador
+
+        const resultadosTitleRow = ["Resultados del Análisis"];
+        const cabecerasResultados = resultsColumns.value.map(col => col.header);
+        const filasResultados = sampleResults.value.map(fila =>
+            resultsColumns.value.map(col => fila[col.field] ?? "-")
+        );
+
+        const datosExcel = [
+            ...muestraInfoData,
+            resultadosTitleRow,
+            cabecerasResultados,
+            ...filasResultados
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(datosExcel);
+        const sheetMerges = [];
+        let excelRowCursor = 0;
+
+        // --- Aplicar Estilos ---
+        const numColsInfo = 2;
+        const numColsResultados = cabecerasResultados.length > 0 ? cabecerasResultados.length : 1;
+        const maxColsForTitle = Math.max(numColsInfo, numColsResultados);
+
+        // 1. Título "Información de la Muestra"
+        if (ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })]) {
+            ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })].s = excelStyles.titleSection;
+        }
+        if (maxColsForTitle > 1) {
+            sheetMerges.push({ s: { r: excelRowCursor, c: 0 }, e: { r: excelRowCursor, c: maxColsForTitle - 1 } });
+        }
+        excelRowCursor++;
+
+        // 2. Pares Etiqueta-Valor de Información de Muestra
+        while (excelRowCursor < datosExcel.length && datosExcel[excelRowCursor].length > 0 && datosExcel[excelRowCursor][0] !== resultadosTitleRow[0]) {
+            if (datosExcel[excelRowCursor].length >= 2) {
+                const labelAddr = XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 });
+                const valueAddr = XLSX.utils.encode_cell({ r: excelRowCursor, c: 1 });
+                if (ws[labelAddr]) ws[labelAddr].s = excelStyles.sampleInfoLabel;
+                if (ws[valueAddr]) ws[valueAddr].s = excelStyles.sampleInfoValue;
+            }
+            excelRowCursor++;
+        }
+        // Saltar fila espaciadora si existe
+        if (excelRowCursor < datosExcel.length && datosExcel[excelRowCursor].length === 0) {
+            excelRowCursor++;
+        }
+
+        // 3. Título "Resultados del Análisis"
+        if (excelRowCursor < datosExcel.length && datosExcel[excelRowCursor][0] === resultadosTitleRow[0]) {
+            if (ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })]) {
+                ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })].s = excelStyles.titleSection; // Reutiliza el estilo de título
+            }
+            if (numColsResultados > 1) {
+                sheetMerges.push({ s: { r: excelRowCursor, c: 0 }, e: { r: excelRowCursor, c: numColsResultados - 1 } });
+            }
+            excelRowCursor++;
+        }
+
+        // 4. Cabeceras de la Tabla de Resultados
+        if (excelRowCursor < datosExcel.length && datosExcel[excelRowCursor].length > 0) {
+            for (let c = 0; c < datosExcel[excelRowCursor].length; c++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: excelRowCursor, c: c });
+                if (ws[cellAddr]) ws[cellAddr].s = excelStyles.resultsTableHeader;
+            }
+            excelRowCursor++;
+        }
+
+        // 5. Celdas de Datos de la Tabla de Resultados (con efecto cebra)
+        let isEvenRow = false;
+        for (let r = excelRowCursor; r < datosExcel.length; r++) {
+            if (datosExcel[r]) {
+                const currentStyle = isEvenRow ? excelStyles.resultsTableCellAlt : excelStyles.resultsTableCell;
+                for (let c = 0; c < datosExcel[r].length; c++) {
+                    const cellAddr = XLSX.utils.encode_cell({ r: r, c: c });
+                    if (ws[cellAddr]) {
+                        ws[cellAddr].s = currentStyle;
+                        if (typeof datosExcel[r][c] === 'number') {
+                            ws[cellAddr].t = 'n';
+                        } else {
+                            ws[cellAddr].t = 's';
+                        }
+                        if (ws[cellAddr].v === null || ws[cellAddr].v === undefined) ws[cellAddr].v = "-";
+                    }
+                }
+            }
+            isEvenRow = !isEvenRow;
+        }
+
+        ws['!merges'] = sheetMerges;
+
+        // Ajustar anchos de columna dinámicamente
+        const anchosColumnas = [];
+        if (datosExcel.length > 0) {
+            let maxNumColsInSheet = 0;
+            datosExcel.forEach(fila => {
+                if (fila.length > maxNumColsInSheet) maxNumColsInSheet = fila.length;
+            });
+
+            for (let i = 0; i < maxNumColsInSheet; i++) {
+                let maxAncho = 0;
+                datosExcel.forEach(fila => {
+                    const celda = fila[i];
+                    const longitudCelda = celda ? String(celda).length : 0;
+                    if (longitudCelda > maxAncho) {
+                        maxAncho = longitudCelda;
+                    }
+                });
+                if (i < 2 && maxAncho < 25) maxAncho = 25; // Para etiquetas y valores de info muestra
+                else if (i >= 2 && maxAncho < 15) maxAncho = 15; // Para columnas de resultados
+                anchosColumnas.push({ wch: Math.max(12, Math.min(maxAncho + 2, 60)) });
+            }
+        }
+        ws['!cols'] = anchosColumnas;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Detalle Muestra");
+        const nombreArchivo = `Resultados_Muestra_${detailRecord.value['Id. Amostra'] || detailRecord.value.cdamostra || 'export'}.xlsx`;
+        XLSX.writeFile(wb, nombreArchivo);
+
+    } catch (error) {
+        console.error("Error al exportar a Excel con estilos:", error);
+        alert("Se produjo un error al generar el archivo Excel estilizado. Revise la consola.");
+    }
+}
+
 // --- LÓGICA VISIBILIDAD COLUMNAS (Tabla Principal) ---
 function initializeColumnVisibility() {
     const defaultHiddenColumns = new Set(['cdamostra', 'cdunidade', 'moroso', 'mrl', 'mercados', 'retailers']);
@@ -98,7 +314,6 @@ function initializeColumnVisibility() {
         vis[c.field] = columnVisibility.value.hasOwnProperty(c.field)
             ? columnVisibility.value[c.field]
             : !defaultHiddenColumns.has(c.field);
-        // Inicializa el filtro para cada columna
         if (columnFilters.value[c.field] === undefined) {
             columnFilters.value[c.field] = "";
         }
@@ -121,7 +336,6 @@ function closeColumnToggleOnClickOutside(event) {
 // --- PAGINACIÓN (CLIENT-SIDE - Solo para vista tabla) ---
 const currentPage = ref(1);
 const itemsPerPage = ref(props.rows);
-// Se aplica el filtro además de la paginación:
 const filteredItems = computed(() => {
     return props.items.filter(item => {
         return definedColumns.value.every(c => {
@@ -224,9 +438,7 @@ function handleRowClick(event, item) {
         }
         target = target.parentElement;
     }
-    console.log('Row clicked, item data:', JSON.stringify(item));
     detailRecord.value = item;
-    console.log('Setting detailRecord:', JSON.stringify(detailRecord.value));
     showDetailPanel.value = true;
 }
 
@@ -249,10 +461,8 @@ async function fetchSampleResults(cdamostra) {
     resultsError.value = null;
     sampleResults.value = [];
     try {
-        console.log(`Workspaceing results for cdamostra: ${cdamostra}`);
         const response = await axios.post(route('muestras.getResults'), { cdamostra });
         const data = response.data;
-        console.log("Results response:", data);
         if (data.success) {
             sampleResults.value = data.data || [];
             if (sampleResults.value.length === 0) {
@@ -293,7 +503,6 @@ async function ejecutarInforme() {
                 }
             }
             if (downloadCount === 0) alert(data.message || 'No se encontraron archivos válidos.');
-            // selectedItems.value = [];
         } else {
             alert(data.message || 'No se encontraron laudos o hubo un error.');
         }
@@ -350,6 +559,26 @@ watch(() => props.items, () => {
     }
     clearLocalState();
 }, { deep: false });
+
+// --- COPIA Y PEGA ESTA FUNCIÓN EN TU <script setup> ---
+
+function getRowClass(item) {
+    // 1. Prioridad máxima: si mrl es 1, la fila es una alerta roja.
+    // Se aplica un fondo rojo claro, un hover rojo más oscuro y opcionalmente un texto más oscuro para legibilidad.
+    if (item.mrl && item.mrl == 1) {
+        return 'bg-red-100 hover:bg-red-200 text-red-800';
+    }
+
+    // 2. Si no es una alerta, revisa si está seleccionada.
+    // Mantiene el comportamiento original de selección.
+    if (isSelected(item)) {
+        return 'bg-blue-50 hover:bg-blue-100/50';
+    }
+
+    // 3. Si no es alerta y no está seleccionada, es una fila normal.
+    // Mantiene el comportamiento de hover original.
+    return 'hover:bg-blue-100/50';
+}
 </script>
 
 <style scoped>
@@ -547,7 +776,7 @@ watch(() => props.items, () => {
                                 </td>
                             </tr>
                             <tr v-for="item in paginatedItems" :key="item.cdamostra"
-                                class="hover:bg-blue-100/50 cursor-pointer" :class="{ 'bg-blue-50': isSelected(item) }"
+                                class="cursor-pointer transition-colors duration-150" :class="getRowClass(item)"
                                 @click="handleRowClick($event, item)">
                                 <td class="p-2 text-center">
                                     <input type="checkbox" :checked="isSelected(item)"
@@ -662,6 +891,15 @@ watch(() => props.items, () => {
                         <h3 class="text-base font-semibold mb-2 pb-1.5 flex items-center gap-1.5 text-gray-700">
                             <TableCellsIcon class="w-4 h-4" /> Resultados del Análisis
                         </h3>
+
+                        <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
+                            @click="exportToExcel" title="Exportar detalle y resultados (Data preliminar de resultados)"
+                            class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
+                            :disabled="isGenerating">
+                            <ArrowDownTrayIcon class="w-4 h-4 mr-1.5" />
+                            Exportar Excel
+                        </button>
+
                         <div v-if="isLoadingResults"
                             class="text-center p-5 text-blue-600 flex items-center justify-center gap-2 bg-blue-50 rounded border">
                             <svg class="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">

@@ -129,6 +129,22 @@ return [
             'trust_server_certificate' => env('MYLIMS_DB_TRUST_SERVER_CERTIFICATE', false), // Usar variable .env con fallback
             // Otras opciones si son necesarias
         ],
+        'onlinedata' => [ // <-- Nueva conexión para BDOnlineData
+            'driver' => env('BDONLINEDDATA_DB_CONNECTION', 'sqlsrv'),
+            'url' => env('BDONLINEDDATA_DB_URL'),
+            'host' => env('BDONLINEDDATA_DB_HOST'),
+            'port' => env('BDONLINEDDATA_DB_PORT', '1433'), // Usar variable .env con fallback
+            'database' => env('BDONLINEDDATA_DB_DATABASE'),
+            'username' => env('BDONLINEDDATA_DB_USERNAME'),
+            'password' => env('BDONLINEDDATA_DB_PASSWORD'),
+            'charset' => env('BDONLINEDDATA_DB_CHARSET', 'utf8'), // Puedes añadir CHARSETS si es necesario
+            'prefix' => env('BDONLINEDDATA_DB_PREFIX', ''), // Añadir prefijo si la tabla lo usa
+            'prefix_indexes' => true,
+            // Opciones específicas de SQL Server
+            // 'encrypt' => env('BDONLINEDDATA_DB_ENCRYPT', 'no'), // Puede ser necesario dependiendo del servidor
+            'trust_server_certificate' => env('BDONLINEDDATA_DB_TRUST_SERVER_CERTIFICATE', false), // Usar variable .env con fallback
+        ],
+
 
 
 

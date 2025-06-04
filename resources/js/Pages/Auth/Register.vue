@@ -8,7 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue'; // Componente TextInput
 import { Head, Link, useForm } from '@inertiajs/vue3';
 // Importa tu componente de logo (asumo que es ApplicationLogo)
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import LogoCeimic from "@/assets/images/logo_ceimic.png";
 
 // Importa iconos
 import {
@@ -69,33 +69,33 @@ const validateEmail = () => {
             if (response.data.status === 'ok') {
                 emailValidatedStep1.value = true;
 
-                 // *** Lógica para preseleccionar el país ***
-                 if (response.data.country_code) {
-                     // Buscar el país local que coincida con el country_code (CDPAIS) recibido
-                     const country = props.countries.find(c => c.code === String(response.data.country_code).trim()); // Aseguramos string y trim
+                // *** Lógica para preseleccionar el país ***
+                if (response.data.country_code) {
+                    // Buscar el país local que coincida con el country_code (CDPAIS) recibido
+                    const country = props.countries.find(c => c.code === String(response.data.country_code).trim()); // Aseguramos string y trim
 
-                     if (country) {
-                          form.country_id = country.id; // Preseleccionar el ID del país encontrado
-                          console.log('País preseleccionado:', country.name); // Log para depuración
-                     } else {
-                         console.warn('Código de país externo no encontrado en lista local:', response.data.country_code);
-                          // Opcional: mostrar un mensaje al usuario si el código no coincide
-                          // form.setError('country_id', 'El código de país no coincide con nuestra lista.');
-                     }
-                 } else {
-                     console.warn('Validación OK, pero no se recibió country_code.');
-                      // Opcional: Asegurar que el select esté en la opción por defecto "Seleccione un país"
-                      form.country_id = '';
-                 }
-                 // *** Fin lógica preselección país ***
+                    if (country) {
+                        form.country_id = country.id; // Preseleccionar el ID del país encontrado
+                        console.log('País preseleccionado:', country.name); // Log para depuración
+                    } else {
+                        console.warn('Código de país externo no encontrado en lista local:', response.data.country_code);
+                        // Opcional: mostrar un mensaje al usuario si el código no coincide
+                        // form.setError('country_id', 'El código de país no coincide con nuestra lista.');
+                    }
+                } else {
+                    console.warn('Validación OK, pero no se recibió country_code.');
+                    // Opcional: Asegurar que el select esté en la opción por defecto "Seleccione un país"
+                    form.country_id = '';
+                }
+                // *** Fin lógica preselección país ***
 
                 // Opcional: Scroll al paso 2 (si tienes el id="step2-fields")
-                 // nextTick(() => {
-                 //    const step2Fields = document.getElementById('step2-fields');
-                 //    if (step2Fields) {
-                 //        step2Fields.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                 //    }
-                 // });
+                // nextTick(() => {
+                //    const step2Fields = document.getElementById('step2-fields');
+                //    if (step2Fields) {
+                //        step2Fields.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                //    }
+                // });
 
 
             } else {
@@ -125,17 +125,17 @@ const validateEmail = () => {
 const submitRegistration = () => {
     // Solo enviar si el email ya fue validado exitosamente en el paso 1 (status 'ok')
     if (!emailValidatedStep1.value || validationResult.value?.status !== 'ok') {
-         alert("Error interno: El estado de validación del correo no es correcto para registrarse.");
-         return;
+        alert("Error interno: El estado de validación del correo no es correcto para registrarse.");
+        return;
     }
 
-     // Antes de enviar, puedes opcionalmente verificar que los campos requeridos del paso 2 no estén vacíos en el frontend
-     // aunque el backend ya los validará.
-     // if (!form.name || !form.password || !form.password_confirmation || !form.country_id) {
-     //     alert("Por favor, completa todos los campos obligatorios.");
-     //      // Aquí podrías marcar los errores manualmente en form.errors si quieres
-     //     return;
-     // }
+    // Antes de enviar, puedes opcionalmente verificar que los campos requeridos del paso 2 no estén vacíos en el frontend
+    // aunque el backend ya los validará.
+    // if (!form.name || !form.password || !form.password_confirmation || !form.country_id) {
+    //     alert("Por favor, completa todos los campos obligatorios.");
+    //      // Aquí podrías marcar los errores manualmente en form.errors si quieres
+    //     return;
+    // }
 
 
     // Usamos form.post de Inertia para enviar todos los datos a la ruta de registro (POST /register)
@@ -174,7 +174,8 @@ const handleMainSubmit = () => {
         <Head title="Registro de Usuario" />
 
         <div class="flex justify-center mb-6">
-            <ApplicationLogo class="h-20 w-auto fill-current text-gray-700 dark:text-gray-300" />
+
+            <img :src="LogoCeimic" alt="Logo CEIMIC" class="block h-14 w-auto object-contain">
         </div>
         <h1 class="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-200">Registro de Usuario</h1>
 
@@ -191,21 +192,15 @@ const handleMainSubmit = () => {
                     <div class="absolute inset-y-0 left-0 flex items-center ps-3.5 pointer-events-none">
                         <EnvelopeIcon class="h-5 w-5 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <TextInput
-                        id="email"
-                        type="email"
-                        class="block w-full ps-10"
-                        v-model="form.email"
-                        required
+                    <TextInput id="email" type="email" class="block w-full ps-10" v-model="form.email" required
                         autocomplete="username"
-                        :disabled="form.processing || (emailValidatedStep1 && validationResult?.status === 'ok')"
-                    />
+                        :disabled="form.processing || (emailValidatedStep1 && validationResult?.status === 'ok')" />
                 </div>
                 <InputError class="mt-2" :message="form.errors.email" />
 
                 <p v-if="!form.errors.email && validationResult?.status && validationResult?.status !== 'ok'"
                     class="mt-2 text-sm text-red-600">
-                     <span v-if="validationResult.status === 'ni'">
+                    <span v-if="validationResult.status === 'ni'">
                         Este correo electrónico pertenece a un usuario interno y no puede registrarse a través de este
                         formulario.
                     </span>
@@ -220,16 +215,17 @@ const handleMainSubmit = () => {
 
 
             <div class="mt-4">
-                <PrimaryButton
-                    v-if="!emailValidatedStep1 || validationResult?.status !== 'ok'"
-                    :disabled="form.processing"
-                    class="w-full justify-center"
-                >
+                <PrimaryButton v-if="!emailValidatedStep1 || validationResult?.status !== 'ok'"
+                    :disabled="form.processing" class="w-full justify-center">
                     <span class="flex items-center justify-center">
-                         <CheckIcon v-if="form.processing" class="animate-spin h-5 w-5 mr-2 text-white" />
+                        <CheckIcon v-if="form.processing" class="animate-spin h-5 w-5 mr-2 text-white" />
                         <CheckIcon v-else class="h-5 w-5 mr-2 text-white" />
-                         Validar Correo </span>
+                        Validar Correo
+                    </span>
                 </PrimaryButton>
+
+
+
 
                 <div v-else id="step2-fields">
                     <div class="mt-4">
@@ -278,14 +274,15 @@ const handleMainSubmit = () => {
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                             :class="{ 'border-red-500': form.errors.country_id }">
                             <option value="" disabled>Seleccione un país</option>
-                             <option v-for="country in countries" :key="country.id" :value="country.id">
+                            <option v-for="country in countries" :key="country.id" :value="country.id">
                                 {{ country.name }}
                             </option>
                         </select>
                         <InputError class="mt-2" :message="form.errors.country_id" />
-                         <p v-if="validationResult?.status === 'ok' && validationResult?.country_code" class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                              Código externo encontrado: {{ validationResult.country_code }}
-                          </p>
+                        <p v-if="validationResult?.status === 'ok' && validationResult?.country_code"
+                            class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            Código externo encontrado: {{ validationResult.country_code }}
+                        </p>
                     </div>
 
                     <div class="mt-6 flex items-center justify-end">
@@ -294,12 +291,18 @@ const handleMainSubmit = () => {
                         ¿Ya tienes cuenta?
                         </Link>
 
-                         <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }"
+                        <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }"
                             :disabled="form.processing">
-                             Registrar
+                            Registrar
                         </PrimaryButton>
                     </div>
 
+                </div>
+                <div class="mt-4">
+                    <Link :href="route('login')"
+                        class="inline-flex items-center justify-center w-full h-10 px-4 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:text-gray-400 dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700 dark:focus:ring-offset-zinc-900">
+                    Volver al Login
+                    </Link>
                 </div>
             </div>
 

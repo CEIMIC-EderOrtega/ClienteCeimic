@@ -28,6 +28,7 @@ class MyLimsService
     }*/
     public function obtenerRegistrosEnviro(string $email): array
     {
+        //jalar infformacion aparte de clink_obtenerRegistros
         try {
             $results = DB::connection('mylims')->select(
                 'EXEC CLink_obtenerRegistros @email = ?', // SP original
