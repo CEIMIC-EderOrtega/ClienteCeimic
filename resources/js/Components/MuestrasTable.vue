@@ -13,6 +13,7 @@ import {
     ArchiveBoxIcon,
     ArrowLeftIcon,
     XMarkIcon,
+    ShieldExclamationIcon,
 } from "@heroicons/vue/24/outline";
 //--para alert
 // En la sección de imports de <script setup>
@@ -32,13 +33,27 @@ const mrlSelections = ref({
 });
 // Determina si el botón MRL debe mostrarse.
 // Determina si el botón MRL debe mostrarse.
+// REEMPLAZA TU 'showMrlButton' ACTUAL CON ESTA NUEVA VERSIÓN:
 const showMrlButton = computed(() => {
-    if (selectedItems.value.length === 0) {
-        return false; // No mostrar si no hay nada seleccionado
+
+    if (!showActionButtonsDiv.value) {
+        return false;
     }
-    // Todos los ítems seleccionados deben tener mrl == 1
-    // Si algún item seleccionado no tiene mrl == 1, no se muestra el botón.
-    return selectedItems.value.every((item) => item.mrl == 1);
+
+    // Pre-condición 2 (más explícita y fundamental para MRL): Debe haber EXACTAMENTE UN ítem seleccionado.
+    if (selectedItems.value.length !== 1) {
+        return false;
+    }
+
+    const unicoItemSeleccionado = selectedItems.value[0];
+
+    return unicoItemSeleccionado.mrl == 1;
+});
+// NUEVA: Propiedad computada para el DIV que contiene los botones de acción.
+// Esto evitará que se muestre un div vacío si hay selecciones pero no cumplen la condición de 'Publicada'.
+const showActionButtonsDiv = computed(() => {
+
+    return selectedItems.value.length > 0 && areAllSelectedPublicada.value;
 });
 async function openMrlModal() {
     // Gracias al computed `showMrlButton`, si esta función se llama,
@@ -276,6 +291,21 @@ const resultsColumns = ref([
     { field: "UNID", header: "Unidad" },
 ]);
 
+// Propiedad computada para verificar si todos los items seleccionados son 'Publicada'
+const areAllSelectedPublicada = computed(() => {
+    if (selectedItems.value.length === 0) {
+        return false;
+    }
+    // Esto es correcto ya que 'Publicada' es la palabra clave
+    return selectedItems.value.every(item => item.Situacao === 'Publicada');
+});
+//  Propiedad computada para la visibilidad del botón "Informe"
+const showInformeButton = computed(() => {
+    if (selectedItems.value.length === 0) {
+        return false;
+    }
+    return areAllSelectedPublicada.value; // Solo se muestra si hay seleccionados Y todos son 'Publicada'
+});
 // --- INICIALIZACIÓN Y WATCHERS ---
 onMounted(() => {
     initializeColumnVisibility();
@@ -978,7 +1008,7 @@ function getRowClass(item) {
                     <div class="flex flex-grow items-center gap-2 order-1 md:order-1 w-full md:w-auto">
                         <Transition name="fade-actions">
                             <div>
-                                <div v-if="selectedItems.length > 0" class="flex flex-wrap gap-2">
+                                <div v-if="showActionButtonsDiv" class="flex flex-wrap gap-2">
                                     <button type="button" @click="ejecutarInforme" :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60">
                                         <ArrowDownTrayIcon class="w-4 h-4 mr-1 inline-block" />

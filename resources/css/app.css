@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* resources/css/app.css */
+
+/* Ejemplo para personalizar el toast de tipo "warning" directamente */
+.Vue-Toastification__toast--warning {
+  background-color: #D9EAD3 !important; /* ¡REEMPLAZA CON TU COLOR DE ADVERTENCIA! */
+  color: #424242 !important;           /* ¡REEMPLAZA CON TU COLOR DE TEXTO PARA ADVERTENCIA! */
+  /* Puedes añadir más propiedades como border, box-shadow, etc. */
+}
+
+/* Ejemplo para el icono del toast de advertencia */
+.Vue-Toastification__toast--warning .Vue-Toastification__icon {
+  fill: #424242 !important; /* ¡REEMPLAZA CON TU COLOR PARA EL ICONO DE ADVERTENCIA! */
+}
+
+
+/* Ejemplo para personalizar el toast de tipo "info" */
+.Vue-Toastification__toast--info {
+  background-color: #64B5F6 !important; /* ¡REEMPLAZA CON TU COLOR DE INFO! */
+  color: #FFFFFF !important;           /* ¡REEMPLAZA CON TU COLOR DE TEXTO PARA INFO! */
+}
+
+/* ... y así para .Vue-Toastification__toast--success y .Vue-Toastification__toast--error */

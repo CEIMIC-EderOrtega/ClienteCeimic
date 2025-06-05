@@ -11,6 +11,7 @@ import {
     HomeIcon,
 
     ChevronDownIcon,
+    UserIcon,
     ChevronRightIcon, // Importa el icono de flecha derecha para indicar que se puede expandir
     UserCircleIcon, // Importa el icono de usuario/imagen de perfil
 } from '@heroicons/vue/24/outline'; // O @heroicons/vue/20/solid si prefieres sólidos

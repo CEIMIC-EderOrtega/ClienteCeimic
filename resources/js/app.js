@@ -7,12 +7,12 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-
+import 'vue-toastification/dist/index.css'; // Estilos CSS para los toasts
 // --- INICIO: Importaciones para Vue Toastification ---
 import Toast, { POSITION } from 'vue-toastification';
 import 'vue-toastification/dist/index.css'; // Estilos CSS para los toasts
 // --- FIN: Importaciones para Vue Toastification ---
-
+import '../css/app.css';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({

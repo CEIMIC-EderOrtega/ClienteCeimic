@@ -42,7 +42,7 @@ class MyLimsService
             throw new Exception("Error al obtener registros Enviro: " . $e->getMessage());
         }
     }
-   public function FilterNewFood(string $email, array $filters): array
+    public function FilterNewFood(string $email, array $filters): array
     {
         //dd("FilterNewFood: " . $email . " - " . json_encode($filters));
         // Obtener el ID de estado como string desde los filtros (ej: "2", "3", "4", "10")
@@ -60,7 +60,7 @@ class MyLimsService
         // Convertir el ID de estado (que es un string como "4") a un entero (int).
         // Esto es lo que el Stored Procedure espera para @Sit.
         $status_param_for_sp = (int) $status_id_string;
-
+        //dd($filters, $status_param_for_sp);
         // El resto de la lógica para obtener otros filtros y fechas:
         $today = Carbon::today();
         $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
@@ -104,11 +104,17 @@ class MyLimsService
                     $hasta
                 ]
             );
+            // --- INICIO Bloque de Depuración ---
+            if (isset($results[0]) && property_exists($results[0], 'GeneratedQueryForDebug')) {
+                $generatedSql = $results[0]->GeneratedQueryForDebug;
+                Log::debug('SQL Generado por el SP: ' . $generatedSql);
+                // Si quieres verlo en la respuesta (solo para depurar, no en producción):
 
+            }
+            // --- FIN Bloque de Depuración ---
             return collect($results)->map(function ($item) {
                 return (array) $item;
             })->all();
-
         } catch (Exception $e) {
             // Tu log de error
             Log::error("Error en MyLimsService::CLink_obtenerRegistrosFoodFiltrados1", [
@@ -135,7 +141,7 @@ class MyLimsService
      * Obtiene registros para la unidad 'Food' aplicando filtros complejos.
      * Llama al SP CLink_obtenerRegistrosFoodFiltrados.
      */
-    public function obtenerRegistrosFoodFiltrados(string $email, array $filters): array
+    /* public function obtenerRegistrosFoodFiltrados(string $email, array $filters): array
     {
         $statusLogicMap = [
 
@@ -146,7 +152,7 @@ class MyLimsService
             'enviada' => 'enviada_portal',
         ];
         $status_logic = $statusLogicMap[$filters['status'] ?? '3'] ?? 'finalizada';
-
+        dd($statusLogicMap);
         $today = Carbon::today();
         $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
         $defaultHasta = $today->format('Y-m-d');
@@ -218,7 +224,7 @@ class MyLimsService
             // Lanzamos la excepción para que el controlador la capture y muestre el error genérico
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
-    }
+    }*/
 
 
 
