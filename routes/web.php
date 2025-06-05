@@ -39,6 +39,15 @@ Route::middleware('auth')->group(function () {
     // --- Ruta para resultados del detalle (sin cambios) ---
     Route::post('/get-amostra-results', [GetResultsAmostrasController::class, 'getResults'])
         ->name('muestras.getResults');
+
+    // --- NUEVAS RUTAS PARA MRL ---
+    // Ruta para obtener los datos para el modal (mercados, retailers)
+    Route::get('/mrl/options', [\App\Http\Controllers\MrlController::class, 'getOptions'])
+        ->name('mrl.options');
+
+    // Ruta para generar y descargar el informe MRL
+    Route::post('/mrl/generate-report', [\App\Http\Controllers\MrlController::class, 'generateReport'])
+        ->name('mrl.generateReport');
 });
 
 // --- Rutas del Panel de Administración (sin cambios) ---
