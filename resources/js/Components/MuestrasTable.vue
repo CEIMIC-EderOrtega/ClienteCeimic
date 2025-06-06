@@ -297,7 +297,7 @@ const areAllSelectedPublicada = computed(() => {
         return false;
     }
     // Esto es correcto ya que 'Publicada' es la palabra clave
-    return selectedItems.value.every(item => item.Situacao === 'Publicada');
+    return selectedItems.value.every(item => item.Situacao === 'Publicada' );
 });
 //  Propiedad computada para la visibilidad del botón "Informe"
 const showInformeButton = computed(() => {

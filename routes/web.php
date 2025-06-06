@@ -13,15 +13,15 @@ use App\Http\Controllers\UserController as AdminUserController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\GetResultsAmostrasController;
 
-Route::get('/', function () {
+/*Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
-});
-
+});*/
+Route::redirect('/', '/login');
 // *** CAMBIO AQUÍ: Aceptar GET y POST para el dashboard ***
 Route::match(['get', 'post'], '/dashboard', [GetMuestrasController::class, 'index'])
     ->middleware(['auth', 'verified'])

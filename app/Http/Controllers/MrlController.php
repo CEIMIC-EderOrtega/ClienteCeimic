@@ -23,24 +23,28 @@ class MrlController extends Controller
     private $dbConnectionName;
     private bool $downloadResponseSent = false; // Para la limpieza en finally
 
-    public function __construct()
+   public function __construct()
     {
-        $this->isProd = filter_var(env('MRL_PROD_MODE', true), FILTER_VALIDATE_BOOLEAN);
-        $this->mrlUser = env('MRL_USER');
+        // Leemos la configuración desde nuestro nuevo archivo config/mrl.php
+        $this->isProd = config('mrl.prod_mode');
+        $this->mrlUser = config('mrl.user');
 
         if ($this->isProd) {
-            $this->mrlPassword      = env('MRL_PASS_PROD');
-            $this->urlLogin         = env('MRL_LOGIN_URL_PROD');
-            $this->urlReporteMuestra = env('MRL_REPORTE_URL_PROD');
+            $this->mrlPassword      = config('mrl.pass_prod');
+            $this->urlLogin         = config('mrl.login_url_prod');
+            $this->urlReporteMuestra = config('mrl.report_url_prod');
         } else {
-            $this->mrlPassword      = env('MRL_PASS_TEST');
-            $this->urlLogin         = env('MRL_LOGIN_URL_TEST');
-            $this->urlReporteMuestra = env('MRL_REPORTE_URL_TEST');
+            $this->mrlPassword      = config('mrl.pass_test');
+            $this->urlLogin         = config('mrl.login_url_test');
+            $this->urlReporteMuestra = config('mrl.report_url_test');
         }
-        $this->dbConnectionName = env('DB_CONNECTION_LEGACY_MRL', 'mylims');
+
+        $this->dbConnectionName = config('mrl.db_connection_legacy');
+
+        // Este log ahora debería mostrar los valores correctos
         Log::info('MrlController: Configuración inicializada.', [
             'is_prod' => $this->isProd,
-            'user' => $this->mrlUser, // Solo para confirmar que se lee
+            'user' => $this->mrlUser,
             'login_url' => $this->urlLogin,
             'report_url' => $this->urlReporteMuestra,
             'db_connection' => $this->dbConnectionName
