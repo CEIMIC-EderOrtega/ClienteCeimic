@@ -31,50 +31,68 @@ const mrlSelections = ref({
     retailers: [],
     language: "0", // 0 para español, 1 para inglés
 });
-// Determina si el botón MRL debe mostrarse.
+
+// NUEVA FUNCIÓN: Determina si la situación de una muestra permite la acción
+// Normaliza a minúsculas para una comparación robusta.
+const isSituacaoPermitida = (item) => {
+    const situacao = item.Situacao ? String(item.Situacao).toLowerCase() : '';
+    const estadosProhibidos = ['recebida', 'finalizada', 'em processo'];
+    return !estadosProhibidos.includes(situacao);
+};
+
+// RENOMBRADA Y MODIFICADA: Ahora verifica si TODAS las muestras seleccionadas tienen una situación permitida
+const areAllSelectedPermitidos = computed(() => {
+    if (selectedItems.value.length === 0) {
+        return false;
+    }
+    return selectedItems.value.every(item => isSituacaoPermitida(item));
+});
+
 // Determina si el botón MRL debe mostrarse.
 // REEMPLAZA TU 'showMrlButton' ACTUAL CON ESTA NUEVA VERSIÓN:
 const showMrlButton = computed(() => {
-
-    if (!showActionButtonsDiv.value) {
-        return false;
-    }
-
-    // Pre-condición 2 (más explícita y fundamental para MRL): Debe haber EXACTAMENTE UN ítem seleccionado.
+    // 1. Pre-condición: Debe haber EXACTAMENTE UN ítem seleccionado.
     if (selectedItems.value.length !== 1) {
         return false;
     }
 
     const unicoItemSeleccionado = selectedItems.value[0];
 
-    return unicoItemSeleccionado.mrl == 1;
+    // 2. Pre-condición: Ese ítem debe tener mrl == 1.
+    if (unicoItemSeleccionado.mrl != 1) { // Usamos != en vez de !== para flexibilidad con tipos
+        return false;
+    }
+
+    // 3. Pre-condición: Ese ítem debe tener una situación permitida.
+    return isSituacaoPermitida(unicoItemSeleccionado);
 });
+
+
+// Propiedad computada para la visibilidad del botón "Informe"
+const showInformeButton = computed(() => {
+    // Debe haber al menos un ítem seleccionado.
+    if (selectedItems.value.length === 0) {
+        return false;
+    }
+    // Y TODOS los ítems seleccionados deben tener una situación permitida.
+    return areAllSelectedPermitidos.value;
+});
+
+
 // NUEVA: Propiedad computada para el DIV que contiene los botones de acción.
-// Esto evitará que se muestre un div vacío si hay selecciones pero no cumplen la condición de 'Publicada'.
+// Esto evitará que se muestre un div vacío si no se cumplen las condiciones para ninguno de los botones.
 const showActionButtonsDiv = computed(() => {
-
-    return selectedItems.value.length > 0 && areAllSelectedPublicada.value;
+    // El div se muestra si hay algún botón de acción visible.
+    return showInformeButton.value || showMrlButton.value;
 });
+
+
 async function openMrlModal() {
-    // Gracias al computed `showMrlButton`, si esta función se llama,
-    // sabemos que todos los `selectedItems.value` tienen `mrl == 1`
-    // y que `selectedItems.value.length` es al menos 1.
-
-    if (selectedItems.value.length > 1) {
-        toast.warning( // <--- Usando vue-toastification
-            "El informe MRL se genera para una muestra a la vez. Por favor, seleccione solo una muestra que tenga la opción MRL activada.",
-            {
-                timeout: 5000, // Un poco más de tiempo para este mensaje específico si lo deseas
-                position: POSITION.TOP_CENTER, // Puedes cambiar la posición para este toast específico
-            }
-        );
-        return; // No abrir el modal de configuración MRL
-    }
-
-    if (selectedItems.value.length === 1) {
-        // Exactamente un ítem seleccionado (y es mrl == 1). Procedemos a abrir el modal de configuración MRL.
-        showMrlModal.value = true;
-    }
+    // Esta función se llama solo si `showMrlButton` es true,
+    // lo que ya garantiza que hay 1 ítem seleccionado, mrl==1 y situación permitida.
+    // El warning que tenías para >1 ya no es necesario aquí,
+    // ya que `showMrlButton` lo impide.
+    showMrlModal.value = true;
 }
 // *** NUEVA FUNCIÓN PARA CARGAR OPCIONES MRL UNA VEZ ***
 async function fetchMrlOptionsOnce() {
@@ -108,15 +126,17 @@ async function fetchMrlOptionsOnce() {
 }
 
 async function handleGenerateMrlReport() {
-    // Filtra solo los cdamostra de los items seleccionados que tienen mrl=1
+    // Filtra solo el cdamostra del ítem seleccionado que tiene mrl=1 y situación permitida.
+    // Por la lógica de showMrlButton, aquí debería haber exactamente 1 ítem válido.
     const mrlSampleIds = selectedItems.value
-        .filter((item) => item.mrl == 1)
+        .filter((item) => item.mrl == 1 && isSituacaoPermitida(item))
         .map((item) => item.cdamostra);
 
     if (mrlSampleIds.length === 0) {
-        alert(
-            "No hay muestras con MRL=1 seleccionadas para generar el informe."
-        );
+        toast.error("No se encontró una muestra MRL válida seleccionada para generar el informe.", {
+            timeout: 3000,
+            position: POSITION.TOP_CENTER,
+        });
         return;
     }
 
@@ -167,9 +187,10 @@ async function handleGenerateMrlReport() {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error("Error al generar informe MRL:", error);
-        alert(
+        toast.error(
             "Error al generar informe MRL: " +
-            (error.message || "Consulte la consola.")
+            (error.message || "Consulte la consola."),
+            { timeout: 5000, position: POSITION.TOP_CENTER }
         );
     } finally {
         isGenerating.value = false;
@@ -291,21 +312,7 @@ const resultsColumns = ref([
     { field: "UNID", header: "Unidad" },
 ]);
 
-// Propiedad computada para verificar si todos los items seleccionados son 'Publicada'
-const areAllSelectedPublicada = computed(() => {
-    if (selectedItems.value.length === 0) {
-        return false;
-    }
-    // Esto es correcto ya que 'Publicada' es la palabra clave
-    return selectedItems.value.every(item => item.Situacao === 'Publicada' );
-});
-//  Propiedad computada para la visibilidad del botón "Informe"
-const showInformeButton = computed(() => {
-    if (selectedItems.value.length === 0) {
-        return false;
-    }
-    return areAllSelectedPublicada.value; // Solo se muestra si hay seleccionados Y todos son 'Publicada'
-});
+
 // --- INICIALIZACIÓN Y WATCHERS ---
 onMounted(() => {
     initializeColumnVisibility();
@@ -779,10 +786,22 @@ async function fetchSampleResults(cdamostra) {
 
 // --- EJECUTAR ACCIONES (Informe, Cadena) ---
 async function ejecutarInforme() {
-    if (!selectedItems.value.length) return;
+    // Aquí la validación se hace con `showInformeButton`, que ya considera la Situacao.
+    if (!selectedItems.value.length || !showInformeButton.value) {
+        toast.warning("Para generar informes, todas las muestras seleccionadas deben tener una situación que permita la acción.", {
+            timeout: 5000,
+            position: POSITION.TOP_CENTER,
+        });
+        return;
+    }
     isGenerating.value = true;
     try {
-        const idsToProcess = selectedItems.value.map((i) => i.cdamostra);
+        // Filtrar aquí para asegurar que solo se envíen IDs de muestras con situación permitida,
+        // aunque `showInformeButton` ya debería garantizarlo.
+        const idsToProcess = selectedItems.value
+            .filter(item => isSituacaoPermitida(item))
+            .map((i) => i.cdamostra);
+
         const resp = await axios.post(
             route("muestras.extraerLaudos"),
             { selected_ids: idsToProcess },
@@ -802,15 +821,28 @@ async function ejecutarInforme() {
                 }
             }
             if (downloadCount === 0)
-                alert(data.message || "No se encontraron archivos válidos.");
+                toast.info(data.message || "No se encontraron archivos válidos para descargar.", {
+                    timeout: 3000,
+                    position: POSITION.TOP_CENTER,
+                });
+            else
+                toast.success(`Se generaron y descargaron ${downloadCount} informes.`, {
+                    timeout: 3000,
+                    position: POSITION.TOP_CENTER,
+                });
+
         } else {
-            alert(data.message || "No se encontraron laudos o hubo un error.");
+            toast.error(data.message || "No se encontraron laudos o hubo un error al procesar.", {
+                timeout: 5000,
+                position: POSITION.TOP_CENTER,
+            });
         }
     } catch (e) {
         console.error("Error al generar informe:", e);
-        alert(
+        toast.error(
             "Error al generar informe: " +
-            (e.response?.data?.message || e.message)
+            (e.response?.data?.message || e.message),
+            { timeout: 5000, position: POSITION.TOP_CENTER }
         );
     } finally {
         isGenerating.value = false;
@@ -818,9 +850,11 @@ async function ejecutarInforme() {
 }
 
 function ejecutarCadena() {
+    // La lógica de Cadena no se ha modificado, pero podrías aplicar isSituacaoPermitida si fuera necesario
     if (!selectedItems.value.length) return;
-    alert(
-        `Generar cadena para ${selectedItems.value.length} items (A IMPLEMENTAR).`
+    toast.info(
+        `Generar cadena para ${selectedItems.value.length} items (A IMPLEMENTAR).`,
+        { timeout: 3000, position: POSITION.TOP_CENTER }
     );
 }
 
@@ -875,119 +909,28 @@ watch(
     { deep: false }
 );
 
-// --- COPIA Y PEGA ESTA FUNCIÓN EN TU <script setup> ---
-
 function getRowClass(item) {
-    // 1. Prioridad máxima: si mrl es 1, la fila es una alerta roja.
-    // Se aplica un fondo rojo claro, un hover rojo más oscuro y opcionalmente un texto más oscuro para legibilidad.
-    if (item.mrl && item.mrl == 1) {
+    // 1. Prioridad máxima: si mrl es 1 y la situación NO es permitida, la fila es una alerta roja.
+    // Esto asegura que una muestra MRL con estado "Em Processo" sea roja.
+    if (item.mrl == 1 && !isSituacaoPermitida(item)) {
         return "bg-red-100 hover:bg-red-200 text-red-800";
     }
+    // 2. Si es una muestra MRL y la situación SÍ es permitida, también es roja (pero con el check habilitado si corresponde)
+    // Esto es para mantener el visual de "MRL es importante"
+    if (item.mrl == 1 && isSituacaoPermitida(item)) {
+        return "bg-red-50 hover:bg-red-100 text-red-700"; // Rojo más sutil pero destacable para MRL válidos
+    }
 
-    // 2. Si no es una alerta, revisa si está seleccionada.
-    // Mantiene el comportamiento original de selección.
+
+    // 3. Si no es una alerta MRL, revisa si está seleccionada.
     if (isSelected(item)) {
         return "bg-blue-50 hover:bg-blue-100/50";
     }
 
-    // 3. Si no es alerta y no está seleccionada, es una fila normal.
-    // Mantiene el comportamiento de hover original.
+    // 4. Si no es alerta y no está seleccionada, es una fila normal.
     return "hover:bg-blue-100/50";
 }
 </script>
-
-<style scoped>
-/* Estilos tabla compacta */
-.compact-datatable th,
-.compact-datatable td {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    vertical-align: middle;
-}
-
-/* Transición botones acción */
-.fade-actions-enter-active,
-.fade-actions-leave-active {
-    transition: opacity 0.3s ease-in-out;
-}
-
-.fade-actions-enter-from,
-.fade-actions-leave-to {
-    opacity: 0;
-}
-
-/* Fijar cabecera tabla */
-.compact-datatable thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background-color: #f9fafb;
-    border-bottom-width: 2px;
-}
-
-/* Scrollbar */
-.scrollable-area::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-}
-
-.scrollable-area::-webkit-scrollbar-thumb {
-    background-color: #a0aec0;
-    border-radius: 4px;
-}
-
-.scrollable-area::-webkit-scrollbar-thumb:hover {
-    background-color: #718096;
-}
-
-.scrollable-area::-webkit-scrollbar-track {
-    background-color: #edf2f7;
-}
-
-/* Fila seleccionada */
-.bg-blue-50 {
-    background-color: #ebf8ff;
-}
-
-.hover\:bg-blue-100\/50:hover {
-    background-color: rgba(219, 234, 254, 0.5);
-}
-
-/* Estilos Vista Detalles (No Modal) */
-.detail-view-container {
-    padding: 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
-    background-color: #ffffff;
-}
-
-.detail-view-header {
-    padding-bottom: 0.75rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-/* Estilos info cards en detalle */
-.info-card {
-    background-color: #f9fafb;
-    padding: 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid #f3f4f6;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-/* Transición de Vista */
-.fade-view-enter-active,
-.fade-view-leave-active {
-    transition: opacity 0.3s ease-out;
-}
-
-.fade-view-enter-from,
-.fade-view-leave-to {
-    opacity: 0;
-}
-</style>
 
 <template>
     <div>
@@ -1009,17 +952,12 @@ function getRowClass(item) {
                         <Transition name="fade-actions">
                             <div>
                                 <div v-if="showActionButtonsDiv" class="flex flex-wrap gap-2">
-                                    <button type="button" @click="ejecutarInforme" :disabled="isGenerating"
+                                    <button v-if="showInformeButton" type="button" @click="ejecutarInforme"
+                                        :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60">
                                         <ArrowDownTrayIcon class="w-4 h-4 mr-1 inline-block" />
                                         Informe ({{ selectedItems.length }})
                                     </button>
-                                    <!--  <button type="button" @click="ejecutarCadena" :disabled="isGenerating"
-                                        class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-60">
-                                        <LinkIcon class="w-4 h-4 mr-1 inline-block" />
-                                        Cadena ({{ selectedItems.length }})
-                                    </button>
-                                  -->
                                     <button v-if="showMrlButton" type="button" @click="openMrlModal"
                                         :disabled="isGenerating"
                                         class="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-60 flex items-center">
@@ -1065,7 +1003,6 @@ function getRowClass(item) {
                 }">
                     <table class="min-w-full border-collapse compact-datatable">
                         <thead class="bg-gray-100">
-                            <!-- Encabezado de columnas -->
                             <tr>
                                 <th class="p-2 text-center border-b-2 bg-gray-100 sticky top-0 z-10 w-10">
                                     <input type="checkbox" title="Seleccionar Todos (Página)" :checked="allVisibleSelected &&
@@ -1087,11 +1024,10 @@ function getRowClass(item) {
                                         }">
                                         <span class="truncate">{{
                                             col.header
-                                            }}</span>
+                                        }}</span>
                                     </th>
                                 </template>
                             </tr>
-                            <!-- Fila de filtros -->
                             <tr class="bg-gray-50">
                                 <th class="p-1"></th>
                                 <template v-for="col in definedColumns" :key="'filtro-' + col.field">
@@ -1117,7 +1053,8 @@ function getRowClass(item) {
                                 <td class="p-2 text-center">
                                     <input type="checkbox" :checked="isSelected(item)"
                                         @change.stop="toggleSelection(item)" @click.stop
-                                        class="form-checkbox h-4 w-4 text-blue-600 rounded" />
+                                        class="form-checkbox h-4 w-4 text-blue-600 rounded"
+                                        :disabled="!isSituacaoPermitida(item) && !isSelected(item)" />
                                 </td>
                                 <template v-for="col in definedColumns" :key="col.field + '-data'">
                                     <td v-if="columnVisibility[col.field]" class="p-2 text-start text-sm text-gray-700">
@@ -1402,3 +1339,95 @@ function getRowClass(item) {
         </div>
     </Transition>
 </template>
+<style scoped>
+/* Estilos tabla compacta */
+.compact-datatable th,
+.compact-datatable td {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Transición botones acción */
+.fade-actions-enter-active,
+.fade-actions-leave-active {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.fade-actions-enter-from,
+.fade-actions-leave-to {
+    opacity: 0;
+}
+
+/* Fijar cabecera tabla */
+.compact-datatable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #f9fafb;
+    border-bottom-width: 2px;
+}
+
+/* Scrollbar */
+.scrollable-area::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.scrollable-area::-webkit-scrollbar-thumb {
+    background-color: #a0aec0;
+    border-radius: 4px;
+}
+
+.scrollable-area::-webkit-scrollbar-thumb:hover {
+    background-color: #718096;
+}
+
+.scrollable-area::-webkit-scrollbar-track {
+    background-color: #edf2f7;
+}
+
+/* Fila seleccionada */
+.bg-blue-50 {
+    background-color: #ebf8ff;
+}
+
+.hover\:bg-blue-100\/50:hover {
+    background-color: rgba(219, 234, 254, 0.5);
+}
+
+/* Estilos Vista Detalles (No Modal) */
+.detail-view-container {
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background-color: #ffffff;
+}
+
+.detail-view-header {
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* Estilos info cards en detalle */
+.info-card {
+    background-color: #f9fafb;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Transición de Vista */
+.fade-view-enter-active,
+.fade-view-leave-active {
+    transition: opacity 0.3s ease-out;
+}
+
+.fade-view-enter-from,
+.fade-view-leave-to {
+    opacity: 0;
+}
+</style>

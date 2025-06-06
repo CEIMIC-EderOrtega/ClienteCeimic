@@ -50,7 +50,9 @@ const applyFilters = (newFilters) => { // newFilters ya viene con unit: 'Food'
 </script>
 
 <template>
-    <Head title="Dashboard Muestras Food" /> <AuthenticatedLayout>
+
+    <Head title="Dashboard Muestras Food" />
+    <AuthenticatedLayout>
         <div class="py-8 md:py-12">
             <div class="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
                 <div v-if="props.error"
@@ -75,7 +77,8 @@ const applyFilters = (newFilters) => { // newFilters ya viene con unit: 'Food'
 
                     <div v-show="!loading">
                         <MuestrasTable :items="props.registros" :rows="20" />
-                        <div v-if="!loading && props.registros.length === 0 && !props.error" class="p-6 text-center text-gray-500">
+                        <div v-if="!loading && props.registros.length === 0 && !props.error"
+                            class="p-6 text-center text-gray-500">
                             No se encontraron registros con los filtros aplicados.
                         </div>
                     </div>
