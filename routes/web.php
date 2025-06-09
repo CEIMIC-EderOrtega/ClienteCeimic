@@ -12,6 +12,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController as AdminUserController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\GetResultsAmostrasController;
+use App\Http\Controllers\GetSampleDetailsController; // <-- NUEVA IMPORTACIÓN
+use App\Http\Controllers\ExcelExportController; // <-- NUEVA IMPORTACIÓN
 
 /*Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -48,6 +50,16 @@ Route::middleware('auth')->group(function () {
     // Ruta para generar y descargar el informe MRL
     Route::post('/mrl/generate-report', [\App\Http\Controllers\MrlController::class, 'generateReport'])
         ->name('mrl.generateReport');
+
+
+    // Esta ruta es solo para los paneles de detalle izquierdo y derecho
+    Route::post('/get-amostra-extended-details', [GetSampleDetailsController::class, 'getExtendedDetails'])
+        ->name('muestras.getExtendedDetails'); // <-- NUEVA RUTA
+
+
+    // --- NUEVA RUTA PARA EXPORTACIÓN DE EXCEL DESDE EL SERVIDOR ---
+    Route::post('/export-sample-details-excel', [ExcelExportController::class, 'exportSampleDetails'])
+        ->name('muestras.exportExcelBackend'); // <-- NUEVA RUTA
 });
 
 // --- Rutas del Panel de Administración (sin cambios) ---

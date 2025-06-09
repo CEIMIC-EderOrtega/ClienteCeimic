@@ -59,7 +59,12 @@ class getResultadosService
 
             if (!empty($results)) {
                 Log::info("Consulta exitosa. Se encontraron " . count($results) . " resultados para la muestra: {$cdamostra}");
-                return ['status' => 'ok', 'results' => $results];
+                // --- CORRECCIÓN CLAVE AQUÍ: Convertir cada objeto stdClass a array ---
+                $resultsAsArrays = collect($results)->map(function ($item) {
+                    return (array) $item; // Convertir cada objeto a array
+                })->all();
+
+                return ['status' => 'ok', 'results' => $resultsAsArrays]; // Devolver el array de arrays
             } else {
                 Log::info("No se encontraron resultados para la muestra: {$cdamostra}");
                 return ['status' => 'empty', 'message' => 'No existe información de resultados para la muestra seleccionada.'];

@@ -14,6 +14,25 @@ import {
     ArrowLeftIcon,
     XMarkIcon,
     ShieldExclamationIcon,
+    // Agrega estos si no los tienes aún, son útiles para los detalles:
+    BuildingOfficeIcon, // Para Cliente, Dirección
+    IdentificationIcon, // Para Número Identificador
+    UserIcon, // Para Muestreado por, Muestreador (persona)
+    DocumentTextIcon, // Para Descripción de la muestra, Información Adicional
+    CalendarDaysIcon, // Para fechas
+    ClockIcon, // Para Fechas con hora
+    TagIcon, // Para Código Muestra Cliente, Variedad
+    MapPinIcon, // Para Lugar de Muestreo, Predio
+    BuildingStorefrontIcon, // Para Productor
+    HashtagIcon, // Para Código de Productor, N° Registro Agrícola
+    BanknotesIcon, // Para Moroso
+    BeakerIcon, // Para MRL (si lo consideras apropiado)
+    GlobeAltIcon, // Para Mercados
+    ShoppingCartIcon, // Para Retailers
+    // Puedes elegir otros si prefieres:
+    // UserGroupIcon, // Para Cliente
+    // ClipboardDocumentListIcon, // Para Registro Agrícola
+    // HomeModernIcon // Para Predio
 } from "@heroicons/vue/24/outline";
 //--para alert
 // En la sección de imports de <script setup>
@@ -272,6 +291,7 @@ const resultsError = ref(null);
 const selectedItems = ref([]);
 const showDetailPanel = ref(false);
 const detailRecord = ref({});
+const extendedDetailRecord = ref({});
 const isGenerating = ref(false);
 const showColumnToggle = ref(false);
 const columnVisibility = ref({});
@@ -334,16 +354,22 @@ watch(pagination, updatePaginationHeight, { flush: "post" });
 
 watch(
     detailRecord,
-    (newDetailRecord, oldDetailRecord) => {
+    async (newDetailRecord, oldDetailRecord) => { // <-- Añadimos 'async' aquí
         if (
             showDetailPanel.value &&
             newDetailRecord?.cdamostra &&
             newDetailRecord.cdamostra !== oldDetailRecord?.cdamostra
         ) {
-            fetchSampleResults(newDetailRecord.cdamostra);
+            // Cargar los resultados de análisis (lo que ya funcionaba)
+            await fetchSampleResults(newDetailRecord.cdamostra);
+
+            // Cargar los detalles extendidos para los paneles (NUEVA LLAMADA)
+            await fetchExtendedDetails(newDetailRecord.cdamostra); // <-- NUEVA LLAMADA
         } else if (!showDetailPanel.value) {
+            // Cuando el panel se oculta, limpiar todo
             sampleResults.value = [];
             resultsError.value = null;
+            extendedDetailRecord.value = {}; // <-- Asegurarse de limpiar también aquí
         }
     },
     { deep: true }
@@ -352,216 +378,241 @@ watch(
 // --- NUEVO MÉTODO PARA EXPORTAR A EXCEL ---
 async function exportToExcel() {
     if (
-        !detailRecord.value ||
-        typeof detailRecord.value !== "object" ||
-        Object.keys(detailRecord.value).length === 0
+        (!detailRecord.value || Object.keys(detailRecord.value).length === 0) &&
+        (!extendedDetailRecord.value || Object.keys(extendedDetailRecord.value).length === 0)
     ) {
         alert("No hay datos de detalle de muestra para exportar.");
         return;
     }
 
     try {
-        const muestraInfoData = [];
-        muestraInfoData.push(["Información de la Muestra"]);
+        let datosExcel = [];
+        let currentRow = 0; // Para llevar el control de la fila actual en datosExcel
 
-        const camposDetalleExportar = [
-            { field: "Id. Amostra", label: "Id. Muestra" },
-            { field: "cdamostra", label: "Código Interno (cdamostra)" },
-            { field: "Grupo", label: "Grupo" },
-            { field: "Processo", label: "Proceso" },
-            { field: "Numero", label: "Número" },
-            { field: "Tipo Amostra", label: "Tipo Muestra" },
-            { field: "Solicitante", label: "Solicitante" },
-            { field: "Coleta", label: "Fecha Colecta" },
-            { field: "Recepcao", label: "Fecha Recepción" },
-            { field: "Previsao", label: "Fecha Previsión" },
-            { field: "Situacao", label: "Situación" },
-            { field: "Data_Situacao", label: "Fecha Situación" },
-            { field: "moroso", label: "Moroso" },
-            { field: "mrl", label: "MRL" },
-            { field: "mercados", label: "Mercados" },
-            { field: "retailers", label: "Retailers" },
+        // --- Definición de campos para los paneles Izquierdo y Derecho ---
+        const camposPanelIzquierdo = [
+            { field: "solicitante", label: "Cliente" },
+            { field: "numero_identificador", label: "Número Identificador" },
+            { field: "direccion", label: "Dirección" },
+            { field: "muestreado_por", label: "Muestreado por" },
+            { field: "descripcion_muestra", label: "Descripción de la muestra" },
+            { field: "fecha_recepcion", label: "Fecha de recepción" },
+            { field: "fecha_inicio_analisis", label: "Fecha de Inicio Análisis" },
+            { field: "fecha_termino_analisis", label: "Fecha de Término Análisis" },
+            { field: "datalaudo", label: "Fecha de Emisión" },
         ];
 
-        camposDetalleExportar.forEach((item) => {
-            const value = detailRecord.value[item.field];
-            if (value !== null && value !== undefined && value !== "") {
-                muestraInfoData.push([item.label + ":", value]);
+        const camposPanelDerecho = [
+            { field: "codigo_muestra_cliente", label: "Código Muestra Cliente" },
+            { field: "variedad", label: "Variedad" },
+            { field: "fecha_muestreo", label: "Fecha de muestreo" },
+            { field: "muestreador_persona", label: "Muestreador" },
+            { field: "lugar_muestreo_detail", label: "Lugar de Muestreo" },
+            { field: "nombre_productor", label: "Nombre Productor" },
+            { field: "codigo_productor", label: "Código de Productor" },
+            { field: "predio", label: "Predio" },
+            { field: "n_registro_agricola", label: "N° Registro Agricola" },
+            { field: "informacion_adicional", label: "Información Adicional" },
+            { field: "moroso", label: "Moroso", source: detailRecord.value }, // Estos vienen del detailRecord original
+            { field: "mrl", label: "MRL", source: detailRecord.value },
+            { field: "mercados", label: "Mercados", source: detailRecord.value },
+            { field: "retailers", label: "Retailers", source: detailRecord.value },
+        ];
+
+        // Determinar el número máximo de filas en los paneles para la disposición lado a lado
+        const maxPanelRows = Math.max(camposPanelIzquierdo.length, camposPanelDerecho.length);
+
+        // --- 1. Título General de Detalles ---
+        datosExcel.push(["Detalle de Muestra"]); // Título principal para la sección de paneles
+        const mainTitleRowIndex = currentRow;
+        currentRow++;
+
+        datosExcel.push([]); // Fila vacía para espacio
+        currentRow++;
+
+        // --- 2. Contenido de los Paneles Izquierdo y Derecho Lado a Lado ---
+        // Definir el número de columnas para esta sección (Etiqueta Izq, Valor Izq, Etiqueta Der, Valor Der)
+        const panelSectionColumnCount = 4; // Col A, B, C, D
+        const panelSectionStartRow = currentRow; // Guarda la fila de inicio para la aplicación de estilos
+
+        for (let i = 0; i < maxPanelRows; i++) {
+            const row = [];
+            // Columna 0 (Etiqueta Izquierda)
+            const leftLabel = camposPanelIzquierdo[i]?.label ? camposPanelIzquierdo[i].label + ":" : "";
+            row.push(leftLabel);
+
+            // Columna 1 (Valor Izquierda)
+            let leftValue = "";
+            if (camposPanelIzquierdo[i]) {
+                leftValue = extendedDetailRecord.value[camposPanelIzquierdo[i].field] ?? detailRecord.value[camposPanelIzquierdo[i].field] ?? 'S/INF';
+                if (leftValue === "" || leftValue === "N/A") leftValue = "S/INF";
             }
-        });
-        muestraInfoData.push([]); // Fila vacía como espaciador
+            row.push(leftValue);
 
-        const resultadosTitleRow = ["Resultados del Análisis"];
-        const cabecerasResultados = resultsColumns.value.map(
-            (col) => col.header
-        );
-        const filasResultados = sampleResults.value.map((fila) =>
-            resultsColumns.value.map((col) => fila[col.field] ?? "-")
-        );
+            // Columna 2 (Etiqueta Derecha)
+            const rightLabel = camposPanelDerecho[i]?.label ? camposPanelDerecho[i].label + ":" : "";
+            row.push(rightLabel);
 
-        const datosExcel = [
-            ...muestraInfoData,
-            resultadosTitleRow,
-            cabecerasResultados,
-            ...filasResultados,
-        ];
+            // Columna 3 (Valor Derecha)
+            let rightValue = "";
+            if (camposPanelDerecho[i]) {
+                const source = camposPanelDerecho[i].source || extendedDetailRecord.value; // Usa source si está definido
+                rightValue = source[camposPanelDerecho[i].field] ?? detailRecord.value[camposPanelDerecho[i].field] ?? 'S/INF';
+                if (rightValue === "" || rightValue === "N/A") rightValue = "S/INF";
+            }
+            row.push(rightValue);
+            datosExcel.push(row);
+            currentRow++;
+        }
+
+        datosExcel.push([]); // Fila vacía como espaciador
+        currentRow++;
+
+        // --- 3. Título "Resultados del Análisis" ---
+        datosExcel.push(["Resultados del Análisis"]);
+        const resultadosTitleRowIndex = currentRow;
+        currentRow++;
+
+        // --- 4. Cabeceras y Filas de Resultados del Análisis ---
+        if (sampleResults.value.length > 0) {
+            const cabecerasResultados = resultsColumns.value.map((col) => col.header);
+            datosExcel.push(cabecerasResultados);
+            const resultadosTableHeaderRowIndex = currentRow; // Guarda la fila de cabeceras de resultados
+            currentRow++;
+
+            sampleResults.value.forEach((fila) => {
+                const filaData = resultsColumns.value.map((col) => fila[col.field] ?? "S/INF");
+                datosExcel.push(filaData);
+                currentRow++;
+            });
+        } else {
+            datosExcel.push(["No se encontraron resultados de análisis."]);
+            currentRow++;
+        }
 
         const ws = XLSX.utils.aoa_to_sheet(datosExcel);
         const sheetMerges = [];
-        let excelRowCursor = 0;
 
-        // --- Aplicar Estilos ---
-        const numColsInfo = 2;
-        const numColsResultados =
-            cabecerasResultados.length > 0 ? cabecerasResultados.length : 1;
-        const maxColsForTitle = Math.max(numColsInfo, numColsResultados);
+        // --- Aplicar Estilos y Merges ---
 
-        // 1. Título "Información de la Muestra"
-        if (ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })]) {
-            ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })].s =
-                excelStyles.titleSection;
+        // Estilos para la sección de paneles
+        const numColsDetails = panelSectionColumnCount; // 4 columnas para los paneles (A:D)
+
+        // Título "Detalle de Muestra"
+        if (ws[XLSX.utils.encode_cell({ r: mainTitleRowIndex, c: 0 })]) {
+            ws[XLSX.utils.encode_cell({ r: mainTitleRowIndex, c: 0 })].s = excelStyles.titleSection;
+            sheetMerges.push({ s: { r: mainTitleRowIndex, c: 0 }, e: { r: mainTitleRowIndex, c: numColsDetails - 1 } });
         }
-        if (maxColsForTitle > 1) {
-            sheetMerges.push({
-                s: { r: excelRowCursor, c: 0 },
-                e: { r: excelRowCursor, c: maxColsForTitle - 1 },
-            });
-        }
-        excelRowCursor++;
 
-        // 2. Pares Etiqueta-Valor de Información de Muestra
-        while (
-            excelRowCursor < datosExcel.length &&
-            datosExcel[excelRowCursor].length > 0 &&
-            datosExcel[excelRowCursor][0] !== resultadosTitleRow[0]
-        ) {
-            if (datosExcel[excelRowCursor].length >= 2) {
-                const labelAddr = XLSX.utils.encode_cell({
-                    r: excelRowCursor,
-                    c: 0,
-                });
-                const valueAddr = XLSX.utils.encode_cell({
-                    r: excelRowCursor,
-                    c: 1,
-                });
-                if (ws[labelAddr])
-                    ws[labelAddr].s = excelStyles.sampleInfoLabel;
-                if (ws[valueAddr])
-                    ws[valueAddr].s = excelStyles.sampleInfoValue;
+        // Estilos para los pares Etiqueta-Valor de los paneles (lados izquierdo y derecho)
+        for (let r = panelSectionStartRow; r < panelSectionStartRow + maxPanelRows; r++) {
+            // Columna de etiquetas izquierdas (A)
+            const labelLeftAddr = XLSX.utils.encode_cell({ r: r, c: 0 });
+            if (ws[labelLeftAddr]) ws[labelLeftAddr].s = excelStyles.sampleInfoLabel;
+
+            // Columna de valores izquierdos (B)
+            const valueLeftAddr = XLSX.utils.encode_cell({ r: r, c: 1 });
+            if (ws[valueLeftAddr]) ws[valueLeftAddr].s = excelStyles.sampleInfoValue;
+
+            // Columna de etiquetas derechas (C)
+            const labelRightAddr = XLSX.utils.encode_cell({ r: r, c: 2 });
+            if (ws[labelRightAddr]) ws[labelRightAddr].s = excelStyles.sampleInfoLabel;
+
+            // Columna de valores derechos (D)
+            const valueRightAddr = XLSX.utils.encode_cell({ r: r, c: 3 });
+            if (ws[valueRightAddr]) ws[valueRightAddr].s = excelStyles.sampleInfoValue;
+        }
+
+        // Título "Resultados del Análisis"
+        const numColsResultados = resultsColumns.value.length > 0 ? resultsColumns.value.length : 1;
+        if (ws[XLSX.utils.encode_cell({ r: resultadosTitleRowIndex, c: 0 })]) {
+            ws[XLSX.utils.encode_cell({ r: resultadosTitleRowIndex, c: 0 })].s = excelStyles.titleSection;
+            // El merge para el título de resultados debe ser al número de columnas de resultados, no de paneles
+            sheetMerges.push({ s: { r: resultadosTitleRowIndex, c: 0 }, e: { r: resultadosTitleRowIndex, c: numColsResultados - 1 } });
+        }
+
+        // Cabeceras de la Tabla de Resultados
+        if (sampleResults.value.length > 0) {
+            const currentHeaderRow = resultadosTitleRowIndex + 1;
+            for (let c = 0; c < resultsColumns.value.length; c++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: currentHeaderRow, c: c });
+                if (ws[cellAddr]) ws[cellAddr].s = excelStyles.resultsTableHeader;
             }
-            excelRowCursor++;
-        }
-        // Saltar fila espaciadora si existe
-        if (
-            excelRowCursor < datosExcel.length &&
-            datosExcel[excelRowCursor].length === 0
-        ) {
-            excelRowCursor++;
         }
 
-        // 3. Título "Resultados del Análisis"
-        if (
-            excelRowCursor < datosExcel.length &&
-            datosExcel[excelRowCursor][0] === resultadosTitleRow[0]
-        ) {
-            if (ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })]) {
-                ws[XLSX.utils.encode_cell({ r: excelRowCursor, c: 0 })].s =
-                    excelStyles.titleSection; // Reutiliza el estilo de título
-            }
-            if (numColsResultados > 1) {
-                sheetMerges.push({
-                    s: { r: excelRowCursor, c: 0 },
-                    e: { r: excelRowCursor, c: numColsResultados - 1 },
-                });
-            }
-            excelRowCursor++;
-        }
-
-        // 4. Cabeceras de la Tabla de Resultados
-        if (
-            excelRowCursor < datosExcel.length &&
-            datosExcel[excelRowCursor].length > 0
-        ) {
-            for (let c = 0; c < datosExcel[excelRowCursor].length; c++) {
-                const cellAddr = XLSX.utils.encode_cell({
-                    r: excelRowCursor,
-                    c: c,
-                });
-                if (ws[cellAddr])
-                    ws[cellAddr].s = excelStyles.resultsTableHeader;
-            }
-            excelRowCursor++;
-        }
-
-        // 5. Celdas de Datos de la Tabla de Resultados (con efecto cebra)
-        let isEvenRow = false;
-        for (let r = excelRowCursor; r < datosExcel.length; r++) {
-            if (datosExcel[r]) {
-                const currentStyle = isEvenRow
-                    ? excelStyles.resultsTableCellAlt
-                    : excelStyles.resultsTableCell;
-                for (let c = 0; c < datosExcel[r].length; c++) {
-                    const cellAddr = XLSX.utils.encode_cell({ r: r, c: c });
+        // Celdas de Datos de la Tabla de Resultados (con efecto cebra)
+        if (sampleResults.value.length > 0) {
+            let isEvenRow = false;
+            let currentDataRow = resultadosTitleRowIndex + 2; // Inicia después del título y las cabeceras
+            for (let r = 0; r < sampleResults.value.length; r++) {
+                const rowExcelIndex = currentDataRow + r;
+                const currentStyle = isEvenRow ? excelStyles.resultsTableCellAlt : excelStyles.resultsTableCell;
+                for (let c = 0; c < resultsColumns.value.length; c++) {
+                    const cellAddr = XLSX.utils.encode_cell({ r: rowExcelIndex, c: c });
                     if (ws[cellAddr]) {
                         ws[cellAddr].s = currentStyle;
-                        if (typeof datosExcel[r][c] === "number") {
-                            ws[cellAddr].t = "n";
-                        } else {
-                            ws[cellAddr].t = "s";
-                        }
-                        if (
-                            ws[cellAddr].v === null ||
-                            ws[cellAddr].v === undefined
-                        )
-                            ws[cellAddr].v = "-";
+                        // Ya se maneja S/INF al construir los datos, solo asegurar el tipo
+                        ws[cellAddr].t = (typeof sampleResults.value[r][resultsColumns.value[c].field] === "number") ? "n" : "s";
                     }
                 }
+                isEvenRow = !isEvenRow;
             }
-            isEvenRow = !isEvenRow;
+        } else {
+            // Si no hay resultados, aplicar estilo al mensaje "No se encontraron resultados..."
+            const messageRowIndex = resultadosTitleRowIndex + 1; // Fila justo debajo del título de resultados
+            const cellAddr = XLSX.utils.encode_cell({ r: messageRowIndex, c: 0 });
+            if (ws[cellAddr]) {
+                ws[cellAddr].s = excelStyles.resultsTableCell; // Estilo básico para el mensaje
+                sheetMerges.push({ s: { r: messageRowIndex, c: 0 }, e: { r: messageRowIndex, c: numColsResultados - 1 } });
+            }
         }
 
         ws["!merges"] = sheetMerges;
 
         // Ajustar anchos de columna dinámicamente
         const anchosColumnas = [];
-        if (datosExcel.length > 0) {
-            let maxNumColsInSheet = 0;
-            datosExcel.forEach((fila) => {
-                if (fila.length > maxNumColsInSheet)
-                    maxNumColsInSheet = fila.length;
-            });
+        // Primero para las columnas de detalles (A, B, C, D)
+        for (let i = 0; i < panelSectionColumnCount; i++) {
+            let maxAncho = 0;
+            for (let r = panelSectionStartRow; r < panelSectionStartRow + maxPanelRows; r++) {
+                const cellValue = datosExcel[r] && datosExcel[r][i] !== undefined ? String(datosExcel[r][i]) : "";
+                if (cellValue.length > maxAncho) {
+                    maxAncho = cellValue.length;
+                }
+            }
+            if (i % 2 === 0) { // Columnas de etiquetas (A, C)
+                anchosColumnas.push({ wch: Math.max(20, Math.min(maxAncho + 2, 40)) });
+            } else { // Columnas de valores (B, D)
+                anchosColumnas.push({ wch: Math.max(30, Math.min(maxAncho + 2, 80)) });
+            }
+        }
 
-            for (let i = 0; i < maxNumColsInSheet; i++) {
+        // Luego para las columnas de resultados (si las hay, empezando después de las de detalle)
+        if (sampleResults.value.length > 0) {
+            for (let i = 0; i < resultsColumns.value.length; i++) {
                 let maxAncho = 0;
-                datosExcel.forEach((fila) => {
-                    const celda = fila[i];
-                    const longitudCelda = celda ? String(celda).length : 0;
-                    if (longitudCelda > maxAncho) {
-                        maxAncho = longitudCelda;
-                    }
+                // Considerar cabeceras y filas de datos
+                const headerValue = String(resultsColumns.value[i].header);
+                if (headerValue.length > maxAncho) maxAncho = headerValue.length;
+
+                sampleResults.value.forEach(item => {
+                    const cellValue = item[resultsColumns.value[i].field] !== undefined ? String(item[resultsColumns.value[i].field]) : "S/INF";
+                    if (cellValue.length > maxAncho) maxAncho = cellValue.length;
                 });
-                if (i < 2 && maxAncho < 25)
-                    maxAncho = 25; // Para etiquetas y valores de info muestra
-                else if (i >= 2 && maxAncho < 15) maxAncho = 15; // Para columnas de resultados
-                anchosColumnas.push({
-                    wch: Math.max(12, Math.min(maxAncho + 2, 60)),
-                });
+                anchosColumnas.push({ wch: Math.max(12, Math.min(maxAncho + 2, 60)) });
             }
         }
         ws["!cols"] = anchosColumnas;
 
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Detalle Muestra");
-        const nombreArchivo = `Resultados_Muestra_${detailRecord.value["Id. Amostra"] ||
-            detailRecord.value.cdamostra ||
-            "export"
+        const nombreArchivo = `Resultados_Muestra_${detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
             }.xlsx`;
         XLSX.writeFile(wb, nombreArchivo);
     } catch (error) {
         console.error("Error al exportar a Excel con estilos:", error);
-        alert(
-            "Se produjo un error al generar el archivo Excel estilizado. Revise la consola."
-        );
+        alert("Se produjo un error al generar el archivo Excel estilizado. Revise la consola.");
     }
 }
 
@@ -739,6 +790,7 @@ function hideDetailPanel() {
     detailRecord.value = {};
     sampleResults.value = [];
     resultsError.value = null;
+    extendedDetailRecord.value = {};
 }
 
 // --- OBTENER RESULTADOS (API) ---
@@ -783,7 +835,43 @@ async function fetchSampleResults(cdamostra) {
         isLoadingResults.value = false;
     }
 }
+async function fetchExtendedDetails(cdamostra) {
+    if (!cdamostra) {
+        console.warn("fetchExtendedDetails llamado sin cdamostra");
+        extendedDetailRecord.value = {};
+        return;
+    }
 
+    // Puedes usar un loader específico si quieres, o solo `isLoadingResults` si abarca ambos.
+    // Para no interferir con el loader de resultados, no usaré isLoadingResults aquí.
+    // Podrías añadir un `isLoadingDetails` si lo necesitas.
+    extendedDetailRecord.value = {}; // Limpia antes de la carga
+
+    try {
+        const response = await axios.post(route("muestras.getExtendedDetails"), { // <-- LLAMA A LA NUEVA RUTA
+            cdamostra,
+        });
+        const data = response.data;
+
+        if (data.success) {
+            extendedDetailRecord.value = data.extended_details || {};
+        } else {
+            console.error("Error al cargar detalles extendidos:", data.message);
+            toast.error(data.message || "Error al cargar detalles adicionales.", {
+                timeout: 3000,
+                position: POSITION.TOP_CENTER,
+            });
+            extendedDetailRecord.value = {};
+        }
+    } catch (error) {
+        console.error("Error de red/API al cargar detalles extendidos:", error);
+        toast.error("Error de conexión al obtener detalles adicionales.", {
+            timeout: 3000,
+            position: POSITION.TOP_CENTER,
+        });
+        extendedDetailRecord.value = {};
+    }
+}
 // --- EJECUTAR ACCIONES (Informe, Cadena) ---
 async function ejecutarInforme() {
     // Aquí la validación se hace con `showInformeButton`, que ya considera la Situacao.
@@ -848,7 +936,67 @@ async function ejecutarInforme() {
         isGenerating.value = false;
     }
 }
+// --- NUEVA FUNCIÓN PARA EXPORTAR EXCEL DESDE EL BACKEND ---
+async function handleExportBackend() {
+    if (!detailRecord.value?.cdamostra) {
+        toast.warning("Primero selecciona una muestra para exportar.", {
+            timeout: 3000,
+            position: POSITION.TOP_CENTER,
+        });
+        return;
+    }
 
+    isGenerating.value = true; // Activa el loader global
+    try {
+        const response = await axios.post(
+            route("muestras.exportExcelBackend"),
+            {
+                cdamostra: detailRecord.value.cdamostra,
+                detail_data: detailRecord.value,
+                extended_detail_data: extendedDetailRecord.value,
+            },
+            { responseType: "blob", timeout: 300000 }
+        );
+
+        // --- CORRECCIÓN CLAVE AQUÍ: Definir el nombre del archivo directamente ---
+        // Ya que el Content-Disposition del backend a veces no se parsea bien con responseType: 'blob'
+        const filename = `Resultados_Muestra_${
+            detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
+        }.xlsx`;
+        // No necesitamos la lógica de `if (header)` si definimos el nombre directamente.
+
+        // Comprobar si la respuesta es un error en formato JSON en lugar de un blob
+        if (response.headers['content-type'] && response.headers['content-type'].includes('application/json')) {
+            const errorData = JSON.parse(await response.data.text());
+            throw new Error(errorData.message || "El servidor devolvió un error inesperado al generar el Excel.");
+        }
+
+        // Lógica de descarga
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); // <--- ¡Aseguramos el MIME type aquí también!
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", filename); // El nombre deseado
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        toast.success("Excel generado y descargado exitosamente.", {
+            timeout: 3000,
+            position: POSITION.TOP_CENTER,
+        });
+
+    } catch (error)  {
+        console.error("Error al exportar Excel desde el backend:", error);
+        const errorMessage = error.response?.data?.message || error.message || "Error desconocido al generar el Excel.";
+        toast.error(`Error al generar Excel: ${errorMessage}`, {
+            timeout: 5000,
+            position: POSITION.TOP_CENTER,
+        });
+    } finally {
+        isGenerating.value = false; // Desactiva el loader
+    }
+}
 function ejecutarCadena() {
     // La lógica de Cadena no se ha modificado, pero podrías aplicar isSituacaoPermitida si fuera necesario
     if (!selectedItems.value.length) return;
@@ -1024,7 +1172,7 @@ function getRowClass(item) {
                                         }">
                                         <span class="truncate">{{
                                             col.header
-                                        }}</span>
+                                            }}</span>
                                     </th>
                                 </template>
                             </tr>
@@ -1137,83 +1285,170 @@ function getRowClass(item) {
                     </button>
                 </div>
                 <div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        <div class="info-card">
+                        <div class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200">
                             <h3
-                                class="text-base font-semibold mb-2 border-b pb-1.5 flex items-center gap-1.5 text-gray-700">
-                                <ListBulletIcon class="w-4 h-4" /> Detalles
-                                Principales
+                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5">
+                                <ListBulletIcon class="w-5 h-5 text-blue-600" />
+                                Detalles Principales
                             </h3>
-                            <ul class="space-y-1.5 text-xs">
-                                <template v-for="col in definedColumns.filter(
-                                    (c) =>
-                                        columnVisibility[c.field] ||
-                                        ['cdamostra', 'cdunidade'].includes(
-                                            c.field
-                                        )
-                                )" :key="'detail-' + col.field">
-                                    <li v-if="
-                                        detailRecord[col.field] != null &&
-                                        detailRecord[col.field] !== ''
-                                    " class="flex justify-between items-start py-0.5">
-                                        <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">{{
-                                            col.header }}:</strong>
-                                        <span class="text-gray-800 text-right flex-1 ml-2 break-words">{{
-                                            detailRecord[col.field] }}</span>
-                                    </li>
-                                </template>
+                            <ul class="space-y-1.5 text-sm">
+                                <li class="flex items-start py-0.5">
+                                    <BuildingOfficeIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Cliente:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.solicitante ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <IdentificationIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Número
+                                        Identificador:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.numero_identificador ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Dirección:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.direccion
+                                        ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <UserIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Muestreado
+                                        por:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.muestreado_por ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <DocumentTextIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Descripción
+                                        de la
+                                        muestra:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.descripcion_muestra ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
+                                        recepción:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.fecha_recepcion ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <ClockIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
+                                        Inicio
+                                        Análisis:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.fecha_inicio_analisis ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <ClockIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
+                                        Término
+                                        Análisis:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.fecha_termino_analisis ?? 'S/INF' }}</span>
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
+                                        Emisión:</strong>
+                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.datalaudo
+                                        ?? 'S/INF' }}</span>
+                                </li>
                             </ul>
+                            <div v-if="Object.keys(extendedDetailRecord).every(key => !extendedDetailRecord[key])"
+                                class="text-gray-500 italic text-center py-2">
+                                No hay detalles principales disponibles.
+                            </div>
                         </div>
-                        <div class="info-card">
+
+                        <div class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200">
                             <h3
-                                class="text-base font-semibold mb-2 border-b pb-1.5 flex items-center gap-1.5 text-gray-700">
-                                <ArchiveBoxIcon class="w-4 h-4" /> Otros Datos
+                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5">
+                                <ArchiveBoxIcon class="w-5 h-5 text-blue-600" />
+                                Otros Datos Adicionales
                             </h3>
-                            <dl class="text-xs space-y-1.5">
-                                <div v-if="detailRecord.moroso != null" class="flex justify-between items-start">
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">
-                                        Moroso:
+                            <dl class="text-sm space-y-1.5">
+                                <div class="flex items-start py-0.5">
+                                    <TagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Código Muestra Cliente:
                                     </dt>
-                                    <dd class="text-gray-800 ml-2 text-right break-words">
-                                        {{ detailRecord.moroso }}
-                                    </dd>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.codigo_muestra_cliente ?? 'S/INF' }}</dd>
                                 </div>
-                                <div v-if="detailRecord.mrl != null" class="flex justify-between items-start">
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">
-                                        MRL:
+                                <div class="flex items-start py-0.5">
+                                    <TagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Variedad:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.variedad ??
+                                        'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Fecha de muestreo:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.fecha_muestreo ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <UserIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Muestreador:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.muestreador_persona ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Lugar de Muestreo:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.lugar_muestreo_detail ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <BuildingStorefrontIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Nombre Productor:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.nombre_productor ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <HashtagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Código de Productor:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.codigo_productor ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Predio:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.predio ??
+                                        'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <HashtagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">N° Registro Agricola:</dt>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.n_registro_agricola ?? 'S/INF' }}</dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <DocumentTextIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Información Adicional:
                                     </dt>
-                                    <dd class="text-gray-800 ml-2 text-right break-words">
-                                        {{ detailRecord.mrl }}
-                                    </dd>
+                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
+                                        extendedDetailRecord.informacion_adicional ?? 'S/INF' }}</dd>
                                 </div>
-                                <div v-if="detailRecord.mercados != null" class="flex justify-between items-start">
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">
-                                        Mercados:
-                                    </dt>
-                                    <dd class="text-gray-800 ml-2 text-right break-words">
-                                        {{ detailRecord.mercados }}
-                                    </dd>
-                                </div>
-                                <div v-if="detailRecord.retailers != null" class="flex justify-between items-start">
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">
-                                        Retailers:
-                                    </dt>
-                                    <dd class="text-gray-800 ml-2 text-right break-words">
-                                        {{ detailRecord.retailers }}
-                                    </dd>
-                                </div>
-                                <div v-if="
-                                    !detailRecord.moroso &&
-                                    !detailRecord.mrl &&
-                                    !detailRecord.mercados &&
-                                    !detailRecord.retailers
-                                " class="text-gray-500 italic text-center pt-2">
-                                    N/A
+
+
+                                <div v-if="Object.keys(extendedDetailRecord).every(key => !extendedDetailRecord[key]) && detailRecord.moroso == null && detailRecord.mrl == null && detailRecord.mercados == null && detailRecord.retailers == null"
+                                    class="text-gray-500 italic text-center py-2">
+                                    No hay datos adicionales disponibles.
                                 </div>
                             </dl>
                         </div>
                     </div>
-
                     <div class="mt-4 pt-4 border-t">
                         <h3 class="text-base font-semibold mb-2 pb-1.5 flex items-center gap-1.5 text-gray-700">
                             <TableCellsIcon class="w-4 h-4" /> Resultados del
@@ -1221,7 +1456,7 @@ function getRowClass(item) {
                         </h3>
 
                         <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
-                            @click="exportToExcel" title="Exportar detalle y resultados (Data preliminar de resultados)"
+                            @click="handleExportBackend" title="Exportar detalle y resultados a Excel"
                             class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
                             :disabled="isGenerating">
                             <ArrowDownTrayIcon class="w-4 h-4 mr-1.5" />

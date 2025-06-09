@@ -1,28 +1,30 @@
 <script setup>
 import { ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import Dropdown from '@/Components/Dropdown.vue'; // Dropdown para escritorio
+import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue'; // NavLink para escritorio
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue'; // ResponsiveNavLink para móvil
+import NavLink from '@/Components/NavLink.vue';
+import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
 
 import {
     HomeIcon,
-
     ChevronDownIcon,
     UserIcon,
-    ChevronRightIcon, // Importa el icono de flecha derecha para indicar que se puede expandir
-    UserCircleIcon, // Importa el icono de usuario/imagen de perfil
-} from '@heroicons/vue/24/outline'; // O @heroicons/vue/20/solid si prefieres sólidos
+    ChevronRightIcon,
+    UserCircleIcon,
+    MagnifyingGlassIcon,
+    GlobeAmericasIcon,
+    FingerPrintIcon,
+    BuildingOffice2Icon,
+} from '@heroicons/vue/24/outline';
 
-const showingNavigationDropdown = ref(false); // Menú hamburguesa principal
-const showingResponsiveProfileDropdown = ref(false); // Estado para mostrar/ocultar enlaces de perfil en responsive
+const showingNavigationDropdown = ref(false);
+const showingResponsiveProfileDropdown = ref(false);
 
 const toggleResponsiveProfileDropdown = () => {
     showingResponsiveProfileDropdown.value = !showingResponsiveProfileDropdown.value;
 };
-
 </script>
 
 <template>
@@ -34,53 +36,55 @@ const toggleResponsiveProfileDropdown = () => {
                         <div class="flex">
                             <div class="flex shrink-0 items-center">
                                 <Link :href="route('dashboard')">
-                                <ApplicationLogo class="h-12 w-auto text-white" />
+                                    <ApplicationLogo class="h-12 w-auto text-white" />
                                 </Link>
                             </div>
 
                             <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink :href="route('dashboard')" :active="route().current('dashboard')" :class="{
-                                    'text-white': true,
-                                    'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                    'border-b-2 border-white': route().current('dashboard'),
-                                    'border-transparent': !route().current('dashboard')
-                                }">
-                                    <HomeIcon class="h-5 w-5 mr-1 text-white" /> Muestras
+                                        'text-white': true,
+                                        'hover:bg-white/10 focus:bg-white/10': true,
+                                        'border-b-2 border-white': route().current('dashboard'),
+                                        'border-transparent': !route().current('dashboard')
+                                    }">
+                                    <MagnifyingGlassIcon class="h-5 w-5 mr-1 text-white" /> Muestras
                                 </NavLink>
 
                                 <NavLink :href="route('admin.countries.index')"
                                     :active="route().current('admin.countries.index')" :class="{
                                         'text-white': true,
-                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-
+                                        'hover:bg-white/10 focus:bg-white/10': true,
                                         'border-b-2 border-white': route().current('admin.countries.index'),
                                         'border-transparent': !route().current('admin.countries.index')
                                     }">
-                                    <HomeIcon class="h-5 w-5 mr-1 text-white" /> Paises
+                                    <GlobeAmericasIcon class="h-5 w-5 mr-1 text-white" /> Paises
                                 </NavLink>
+
                                 <NavLink :href="route('admin.roles.index')" :active="route().current('admin.roles.*')"
-                                    :class="{ // Usamos .* para que esté activo en index, create, edit, etc.
+                                    :class="{
                                         'text-white': true,
-                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                        'border-b-2 border-white': route().current('admin.roles.*'), // Usa .* también aquí
+                                        'hover:bg-white/10 focus:bg-white/10': true,
+                                        'border-b-2 border-white': route().current('admin.roles.*'),
                                         'border-transparent': !route().current('admin.roles.*')
                                     }">
-                                    <UserCircleIcon class="h-5 w-5 mr-1 text-white" /> Roles
+                                    <FingerPrintIcon class="h-5 w-5 mr-1 text-white" /> Roles
                                 </NavLink>
+
                                 <NavLink :href="route('admin.companies.index')"
                                     :active="route().current('admin.companies.*')" :class="{
                                         'text-white': true,
-                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                        'border-b-2 border-white': route().current('admin.companies.*'), // Usa .* también aquí
+                                        'hover:bg-white/10 focus:bg-white/10': true,
+                                        'border-b-2 border-white': route().current('admin.companies.*'),
                                         'border-transparent': !route().current('admin.companies.*')
                                     }">
-                                    <HomeIcon class="h-5 w-5 mr-1 text-white" /> Empresas
+                                    <BuildingOffice2Icon class="h-5 w-5 mr-1 text-white" /> Empresas
                                 </NavLink>
+
                                 <NavLink :href="route('admin.users.index')" :active="route().current('admin.users.*')"
                                     :class="{
                                         'text-white': true,
-                                        'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                        'border-b-2 border-white': route().current('admin.users.*'), // Resalta con borde si la ruta actual es users.*
+                                        'hover:bg-white/10 focus:bg-white/10': true,
+                                        'border-b-2 border-white': route().current('admin.users.*'),
                                         'border-transparent': !route().current('admin.users.*')
                                     }">
                                     <UserIcon class="h-5 w-5 mr-1 text-white" /> Usuarios
@@ -94,7 +98,7 @@ const toggleResponsiveProfileDropdown = () => {
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
                                             <button type="button"
-                                                class="inline-flex items-center px-3 py-2 rounded-md font-medium text-white hover:bg-[#3a4c6b] transform hover:scale-105 transition duration-150 ease-in-out">
+                                                class="inline-flex items-center px-3 py-2 rounded-md font-medium text-white hover:bg-white/10 transition duration-150 ease-in-out whitespace-nowrap min-w-[120px] justify-center">
                                                 <UserCircleIcon class="h-6 w-6 mr-1" />
                                                 {{ $page.props.auth.user.name }}
                                                 <ChevronDownIcon
@@ -106,7 +110,7 @@ const toggleResponsiveProfileDropdown = () => {
                                     <template #content>
                                         <DropdownLink :href="route('profile.edit')"> Profile </DropdownLink>
                                         <DropdownLink :href="route('logout')" method="post" as="button">
-                                            Cerrar session
+                                            Cerrar sesión
                                         </DropdownLink>
                                     </template>
                                 </Dropdown>
@@ -115,17 +119,17 @@ const toggleResponsiveProfileDropdown = () => {
 
                         <div class="-me-2 flex items-center sm:hidden">
                             <button @click="showingNavigationDropdown = !showingNavigationDropdown"
-                                class="inline-flex items-center justify-center rounded-md p-2 text-white transition duration-150 ease-in-out hover:bg-[#3a4c6b] focus:bg-[#3a4c6b] focus:outline-none">
+                                class="inline-flex items-center justify-center rounded-md p-2 text-white transition duration-150 ease-in-out hover:bg-white/10 focus:bg-white/10 focus:outline-none">
                                 <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                                     <path :class="{
-                                        hidden: showingNavigationDropdown,
-                                        'inline-flex': !showingNavigationDropdown,
-                                    }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            hidden: showingNavigationDropdown,
+                                            'inline-flex': !showingNavigationDropdown,
+                                        }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M4 6h16M4 12h16M4 18h16" />
                                     <path :class="{
-                                        hidden: !showingNavigationDropdown,
-                                        'inline-flex': showingNavigationDropdown,
-                                    }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            hidden: !showingNavigationDropdown,
+                                            'inline-flex': showingNavigationDropdown,
+                                        }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
@@ -137,62 +141,67 @@ const toggleResponsiveProfileDropdown = () => {
                     class="sm:hidden bg-[#485F84] py-2">
                     <div class="space-y-1 pb-3 pt-2">
                         <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')" :class="{
-                            'flex items-center px-4 py-2 text-white': true,
-                            'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                            // Cambiado para usar fondo en lugar de borde lateral blanco cuando está activo
-                            'bg-[#3a4c6b]': route().current('dashboard'),
-                            'border-transparent': !route().current('dashboard') // Mantén el borde transparente si no está activo
-                        }">
-                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Muestras
-                        </ResponsiveNavLink>
-
-
-                        <ResponsiveNavLink :href="route('admin.countries.index')"
-                            :active="route().current('admin.countries.index')" :class="{
-                                'flex items-center px-4 py-2 text-white': true,
-                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                // Cambiado para usar fondo en lugar de borde lateral blanco cuando está activo
-                                'bg-[#3a4c6b]': route().current('admin.countries.index'),
-                                'border-transparent': !route().current('admin.countries.index') // Mantén el borde transparente si no está activo
+                                'flex items-center px-4 py-2': true, /* Quitamos text-white para control granular */
+                                'bg-white/20': route().current('dashboard'), /* Fondo más claro para activo */
+                                'text-white': !route().current('dashboard'), /* Texto blanco si no está activo */
+                                'text-gray-800': route().current('dashboard'), /* Texto oscuro si está activo */
+                                'hover:bg-white/10 focus:bg-white/10': true, /* Fondo hover más claro */
+                                'hover:text-gray-900 focus:text-gray-900': true, /* Texto oscuro al hover */
                             }">
-                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Muestras
+                            <MagnifyingGlassIcon class="h-5 w-5 mr-1" :class="{ 'text-gray-800': route().current('dashboard'), 'text-white': !route().current('dashboard') }" />
+                            Muestras
                         </ResponsiveNavLink>
 
                         <ResponsiveNavLink :href="route('admin.countries.index')"
                             :active="route().current('admin.countries.index')" :class="{
-                                'flex items-center px-4 py-2 text-white': true,
-                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                'bg-[#3a4c6b]': route().current('admin.countries.index'),
-                                'border-transparent': !route().current('admin.countries.index')
+                                'flex items-center px-4 py-2': true,
+                                'bg-white/20': route().current('admin.countries.index'),
+                                'text-white': !route().current('admin.countries.index'),
+                                'text-gray-800': route().current('admin.countries.index'),
+                                'hover:bg-white/10 focus:bg-white/10': true,
+                                'hover:text-gray-900 focus:text-gray-900': true,
                             }">
-                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Paises
+                            <GlobeAmericasIcon class="h-5 w-5 mr-1" :class="{ 'text-gray-800': route().current('admin.countries.index'), 'text-white': !route().current('admin.countries.index') }" />
+                            Paises
                         </ResponsiveNavLink>
+
                         <ResponsiveNavLink :href="route('admin.roles.index')" :active="route().current('admin.roles.*')"
-                            :class="{ // Usamos .*
-                                'flex items-center px-4 py-2 text-white': true,
-                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                'bg-[#3a4c6b]': route().current('admin.roles.*'), // Usa .* también aquí
-                                'border-transparent': !route().current('admin.roles.*')
+                            :class="{
+                                'flex items-center px-4 py-2': true,
+                                'bg-white/20': route().current('admin.roles.*'),
+                                'text-white': !route().current('admin.roles.*'),
+                                'text-gray-800': route().current('admin.roles.*'),
+                                'hover:bg-white/10 focus:bg-white/10': true,
+                                'hover:text-gray-900 focus:text-gray-900': true,
                             }">
-                            <UserCircleIcon class="h-5 w-5 mr-1 text-white" /> Roles
+                            <FingerPrintIcon class="h-5 w-5 mr-1" :class="{ 'text-gray-800': route().current('admin.roles.*'), 'text-white': !route().current('admin.roles.*') }" />
+                            Roles
                         </ResponsiveNavLink>
+
                         <ResponsiveNavLink :href="route('admin.companies.index')"
                             :active="route().current('admin.companies.*')" :class="{
-                                'flex items-center px-4 py-2 text-white': true,
-                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                'bg-[#3a4c6b]': route().current('admin.companies.*'), // Usa .* también aquí (fondo para activo)
-                                'border-transparent': !route().current('admin.companies.*') // Borde transparente si no está activo
+                                'flex items-center px-4 py-2': true,
+                                'bg-white/20': route().current('admin.companies.*'),
+                                'text-white': !route().current('admin.companies.*'),
+                                'text-gray-800': route().current('admin.companies.*'),
+                                'hover:bg-white/10 focus:bg-white/10': true,
+                                'hover:text-gray-900 focus:text-gray-900': true,
                             }">
-                            <HomeIcon class="h-5 w-5 mr-1 text-white" /> Empresas
+                            <BuildingOffice2Icon class="h-5 w-5 mr-1" :class="{ 'text-gray-800': route().current('admin.companies.*'), 'text-white': !route().current('admin.companies.*') }" />
+                            Empresas
                         </ResponsiveNavLink>
+
                         <ResponsiveNavLink :href="route('admin.users.index')" :active="route().current('admin.users.*')"
                             :class="{
-                                'flex items-center px-4 py-2 text-white': true,
-                                'hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]': true,
-                                'bg-[#3a4c6b]': route().current('admin.users.*'), // Resalta con fondo si la ruta actual es users.*
-                                'border-transparent': !route().current('admin.users.*')
+                                'flex items-center px-4 py-2': true,
+                                'bg-white/20': route().current('admin.users.*'),
+                                'text-white': !route().current('admin.users.*'),
+                                'text-gray-800': route().current('admin.users.*'),
+                                'hover:bg-white/10 focus:bg-white/10': true,
+                                'hover:text-gray-900 focus:text-gray-900': true,
                             }">
-                            <UserIcon class="h-5 w-5 mr-1 text-white" /> Usuarios
+                            <UserIcon class="h-5 w-5 mr-1" :class="{ 'text-gray-800': route().current('admin.users.*'), 'text-white': !route().current('admin.users.*') }" />
+                            Usuarios
                         </ResponsiveNavLink>
                     </div>
 
@@ -200,10 +209,10 @@ const toggleResponsiveProfileDropdown = () => {
                         <div class="px-4 flex items-center justify-between cursor-pointer"
                             @click="toggleResponsiveProfileDropdown">
                             <div>
-                                <div class="text-base font-medium text-white">
+                                <div class="text-base font-medium text-white truncate max-w-[calc(100vw-120px)]">
                                     {{ $page.props.auth.user.name }}
                                 </div>
-                                <div class="text-sm font-medium text-gray-300">
+                                <div class="text-sm font-medium text-gray-300 truncate max-w-[calc(100vw-120px)]">
                                     {{ $page.props.auth.user.email }}
                                 </div>
                             </div>
@@ -214,12 +223,12 @@ const toggleResponsiveProfileDropdown = () => {
 
                         <div class="mt-3 space-y-1" v-if="showingResponsiveProfileDropdown">
                             <ResponsiveNavLink :href="route('profile.edit')"
-                                class="px-4 py-2 text-white hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]">
+                                class="px-4 py-2 text-white hover:bg-white/10 focus:bg-white/10 hover:text-gray-900 focus:text-gray-900">
                                 Profile
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('logout')" method="post" as="button"
-                                class="px-4 py-2 text-white hover:bg-[#3a4c6b] focus:bg-[#3a4c6b]">
-                                Cerrar session
+                                class="px-4 py-2 text-white hover:bg-white/10 focus:bg-white/10 hover:text-gray-900 focus:text-gray-900">
+                                Cerrar sesión
                             </ResponsiveNavLink>
                         </div>
                     </div>

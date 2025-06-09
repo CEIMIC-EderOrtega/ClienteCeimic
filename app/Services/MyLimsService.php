@@ -402,4 +402,122 @@ class MyLimsService
             return ['status' => 'error', 'message' => 'Error al validar con sistema externo.', 'country_code' => null]; // Estado de error, código de país null
         }
     }
+    /**
+     * Obtiene los detalles extendidos de una muestra por su cdamostra,
+     * específicamente para mostrar en los paneles de detalle.
+     *
+     * @param string $cdamostra El ID interno de la muestra.
+     * @return array|null Los detalles extendidos de la muestra o null si no se encuentra.
+     */
+    public function getSampleExtendedDetailsForDisplay(string $cdamostra): ?array
+    {
+        Log::info("MyLimsService: Obteniendo detalles extendidos para display para cdamostra: " . $cdamostra);
+
+        try {
+            $results = DB::connection('mylims')->select("
+                SELECT
+                    CASE WHEN ISNULL(dbo.infos(A.CDAMOSTRA,962),'') = '' THEN (COALESCE(CONVERT(VARCHAR,A.DTPUBLICACAO,103),CONVERT(VARCHAR,GETDATE(),103))) ELSE
+                    ((CASE WHEN DAY(dbo.infos(A.CDAMOSTRA,962)) < 10 THEN '0' + CAST(DAY(dbo.infos(A.CDAMOSTRA,962)) AS VARCHAR(10)) ELSE CAST(DAY(dbo.infos(A.CDAMOSTRA,962)) AS VARCHAR(10)) END) + '/' +
+                    (CASE WHEN MONTH(dbo.infos(A.CDAMOSTRA,962)) < 10 THEN '0' + CAST(MONTH(dbo.infos(A.CDAMOSTRA,960)) AS VARCHAR(10)) ELSE CAST(MONTH(dbo.infos(A.CDAMOSTRA,962)) AS VARCHAR(10)) END) + '/' +
+                    CAST(YEAR(dbo.infos(A.CDAMOSTRA,962)) AS VARCHAR(10)))
+                    END AS datalaudo, -- Fecha de Emisión
+                    ES.RAZAOSOCIAL + (CASE WHEN ISNULL(ES.NMUDEMPRESA04, '') != '' THEN ' (' + ES.NMUDEMPRESA04 + ')' ELSE '' END) as solicitante, -- Cliente
+                    COALESCE(OG.OBS,OP.OBS,(
+                    CASE WHEN LN.NMLOGRADOURO IS NOT NULL THEN + LN.NMLOGRADOURO + ' ' ELSE '' END +
+                    CASE WHEN EN.ENDERECO IS NOT NULL THEN EN.ENDERECO + ' ' ELSE '' END +
+                    CASE WHEN EN.NUMERO IS NOT NULL THEN EN.NUMERO ELSE '' END +
+                    CASE WHEN EN.COMPLEMENTO IS NOT NULL THEN ' ' + EN.COMPLEMENTO + ' ' ELSE '' END +
+                    CASE WHEN EN.OBSENDERECO IS NOT NULL THEN ' ' + EN.OBSENDERECO +' - ' ELSE ' - ' END +
+                    CASE WHEN EN.BAIRRO IS NOT NULL THEN EN.BAIRRO + ' - ' ELSE '' END +
+                    CASE WHEN CD.NMCIDADE IS NOT NULL THEN CD.NMCIDADE + ' - ' ELSE '' END +
+                    CASE WHEN ISNULL(ESM.NMESTADO, '') = '' THEN (CASE WHEN ED.NMESTADO IS NOT NULL THEN ED.NMESTADO ELSE '' END) ELSE ESM.NMESTADO END )) AS direccion, -- Dirección
+                    dbo.infos(A.CDAMOSTRA,610) AS muestreado_por, -- Muestreado por
+                    case when dbo.infos(A.CDAMOSTRA,677) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,677) end AS descripcion_muestra, -- Descripción de la muestra
+                    CASE WHEN ISNULL(UD.NMUDAMOSTRA09,'') != '' THEN LEFT(UD.NMUDAMOSTRA09,10) ELSE LEFT(dbo.fechahora(dbo.infos(A.CDAMOSTRA,CASE WHEN A.CDUNIDADE IN (123) THEN 957 ELSE 611 END)),10) END AS fecha_recepcion, -- Fecha de recepción
+                    CONVERT(VARCHAR,
+                        (
+                            SELECT dbo.fecha_amd(
+                            (CASE WHEN DAY(VEA.VLVE) < 10 THEN '0' + CAST(DAY(VEA.VLVE) AS VARCHAR(10)) ELSE CAST(DAY(VEA.VLVE) AS VARCHAR(10)) END) + '/' +
+                            (CASE WHEN MONTH(VEA.VLVE) < 10 THEN '0' + CAST(MONTH(VEA.VLVE) AS VARCHAR(10)) ELSE CAST(MONTH(VEA.VLVE) AS VARCHAR(10)) END) + '/' +
+                            CAST(YEAR(VEA.VLVE) AS VARCHAR(10)))
+                            FROM VEAMOSTRA VEA
+                            INNER JOIN VEMETODO VEM ON VEM.CDVEMETODO = VEA.CDVEMETODO
+                            INNER JOIN METODOSAM MA ON MA.CDAMOSTRA = VEA.CDAMOSTRA AND MA.CDMETODO = VEM.CDMETODO
+                            WHERE VEA.CDAMOSTRA = A.CDAMOSTRA AND VEM.CDVE = (CASE WHEN A.CDUNIDADE IN (123) THEN 4 ELSE 234 END)
+                            AND VEA.DTEDICAO =
+                            (
+                                SELECT DTEDICAO = MAX(VEA.DTEDICAO)
+                                FROM VEAMOSTRA VEA
+                                INNER JOIN VEMETODO VEM ON VEM.CDVEMETODO = VEA.CDVEMETODO
+                                INNER JOIN METODOSAM MA ON MA.CDAMOSTRA = VEA.CDAMOSTRA AND MA.CDMETODO = VEM.CDMETODO
+                                WHERE VEA.CDAMOSTRA = A.CDAMOSTRA AND VEM.CDVE = (CASE WHEN A.CDUNIDADE IN (123) THEN 4 ELSE 234 END)
+                                GROUP BY VEA.CDAMOSTRA, VEM.CDVE
+                            )
+                        )
+                    ,103) AS fecha_inicio_analisis, -- Fecha de Inicio Análisis
+                    CASE WHEN ISNULL(dbo.infos(A.CDAMOSTRA,961),'') = '' THEN CONVERT(VARCHAR,HF.DTSITAMOSTRA,103) ELSE
+                    ((CASE WHEN DAY(dbo.infos(A.CDAMOSTRA,961)) < 10 THEN '0' + CAST(DAY(dbo.infos(A.CDAMOSTRA,961)) AS VARCHAR(10)) ELSE CAST(DAY(dbo.infos(A.CDAMOSTRA,961)) AS VARCHAR(10)) END) + '/' +
+                    (CASE WHEN MONTH(dbo.infos(A.CDAMOSTRA,961)) < 10 THEN '0' + CAST(MONTH(dbo.infos(A.CDAMOSTRA,961)) AS VARCHAR(10)) ELSE CAST(MONTH(dbo.infos(A.CDAMOSTRA,961)) AS VARCHAR(10)) END) + '/' +
+                    CAST(YEAR(dbo.infos(A.CDAMOSTRA,961)) AS VARCHAR(10)))
+                    END AS fecha_termino_analisis, -- Fecha de Término Análisis
+                    CASE WHEN (ES.FLPESSOAFISICA = 'S' AND ISNULL(ES.CNPJCPF, '') = '') THEN ES.NMUDEMPRESA03 ELSE ES.CNPJCPF END AS numero_identificador, -- Número Identificador (RUC)
+                    case when A.cdmatriz in (8) then LEFT(dbo.fechahora(A.DTCOLETA),10)
+                    else dbo.fechahora(A.DTCOLETA) end AS fecha_muestreo, -- Fecha de muestreo
+
+                    case when dbo.infos(A.CDAMOSTRA,678) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,678) end AS codigo_muestra_cliente, -- Código Muestra Cliente
+                    case when dbo.infos(A.CDAMOSTRA,679) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,679) end AS variedad, -- Variedad
+                    case when dbo.infos(A.CDAMOSTRA,680) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,680) end AS muestreador_persona, -- Muestreador (persona)
+                    CASE WHEN ISNULL(UD.NMUDAMOSTRA08,'') != '' THEN NMUDAMOSTRA08 ELSE dbo.infos(A.CDAMOSTRA,615) END AS lugar_muestreo_detail,
+                    case when dbo.infos(A.CDAMOSTRA,681) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,681) end AS nombre_productor, -- Nombre Productor
+                    case when dbo.infos(A.CDAMOSTRA,682) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,682) end AS codigo_productor, -- Código de Productor
+                    case when dbo.infos(A.CDAMOSTRA,773) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,773) end AS predio, -- Predio
+                    case when dbo.infos(A.CDAMOSTRA,684) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,684) end AS n_registro_agricola, -- N° Registro Agricola
+                    CASE WHEN ISNULL(dbo.infos(A.CDAMOSTRA,685),'') = '' THEN (SELECT OBS FROM OBSAMOSTRA WHERE CDAMOSTRA = A.CDAMOSTRA AND CDTIPOOBSERVACAO = 145 AND FLATIVO = 'S') ELSE dbo.infos(A.CDAMOSTRA,685) END AS informacion_adicional, -- Información Adicional
+                    a.CDAMOSTRA
+
+                FROM AMOSTRA A
+                LEFT JOIN AMOSTRASGRPAMOSTRA AGA ON AGA.CDAMOSTRA = A.CDAMOSTRA
+                LEFT JOIN GRPAMOSTRA G ON G.CDGRPAMOSTRA = AGA.CDGRPAMOSTRA
+                LEFT JOIN OBSGRPAMOSTRA OG ON OG.CDGRPAMOSTRA = G.CDGRPAMOSTRA AND OG.CDTIPOOBSERVACAO = 108 AND OG.FLATIVO = 'S'
+                LEFT JOIN OBSGRPAMOSTRA OGP ON OGP.CDGRPAMOSTRA = G.CDGRPAMOSTRA AND OGP.CDTIPOOBSERVACAO = 146 AND OGP.FLATIVO = 'S'
+                INNER JOIN TIPOAMOSTRA T ON T.CDTIPOAMOSTRA = A.CDTIPOAMOSTRA
+                INNER JOIN AMOSTRASITENSPRO AIP ON AIP.CDAMOSTRA = A.CDAMOSTRA
+                INNER JOIN PROCESSO P ON P.CDPROCESSO = AIP.CDPROCESSO
+                LEFT JOIN OBSPROCESSO OP ON OP.CDPROCESSO = P.CDPROCESSO AND OP.CDTIPOOBSERVACAO = 108 AND OP.FLATIVO = 'S'
+                LEFT JOIN OBSPROCESSO OPR ON OPR.CDPROCESSO = P.CDPROCESSO AND OPR.CDTIPOOBSERVACAO = 146 AND OPR.FLATIVO = 'S'
+                INNER JOIN EMPRESA ES ON ES.CDEMPRESA = A.CDEMPRESASOL
+                LEFT JOIN CONTATOSEMP CE ON CE.CDCONTATO = A.CDCONTATOSOL
+                LEFT JOIN ENDERECOSEMP ENE ON ENE.CDEMPRESA = ES.CDEMPRESA AND ENE.CDTIPOENDERECO = 1
+                LEFT JOIN ENDERECO EN ON EN.CDENDERECO = ENE.CDENDERECO
+                LEFT JOIN LOGRADOURO LN ON LN.CDLOGRADOURO = EN.CDLOGRADOURO
+                LEFT JOIN CIDADE CD ON CD.CDCIDADE = EN.CDCIDADE
+                LEFT JOIN ESTADO ED ON ED.CDESTADO = EN.CDESTADO
+                LEFT JOIN onlinedata.dbo.ESTADO ESM ON ESM.CDESTADO = EN.CDESTADO
+                LEFT JOIN ENDERECOSEMP ENC ON ENC.CDEMPRESA = ES.CDEMPRESA AND ENC.CDTIPOENDERECO = 2
+                LEFT JOIN ENDERECO EC ON EC.CDENDERECO = ENC.CDENDERECO
+                LEFT JOIN LOGRADOURO LC ON LC.CDLOGRADOURO = EC.CDLOGRADOURO
+                LEFT JOIN CIDADE CC ON CC.CDCIDADE = EC.CDCIDADE
+                LEFT JOIN ESTADO ET ON ET.CDESTADO = EC.CDESTADO
+                LEFT JOIN LIMITE L ON L.CDLIMITE = A.CDLIMITE
+                LEFT JOIN HISTSITAMOSTRA H ON H.CDAMOSTRA = A.CDAMOSTRA AND H.CDSITAMOSTRA = 4
+                LEFT JOIN (SELECT CDAMOSTRA, DTSITAMOSTRA = MAX(DTSITAMOSTRA) FROM HISTSITAMOSTRA WHERE CDSITAMOSTRA = 3 GROUP BY CDAMOSTRA) HF ON HF.CDAMOSTRA = A.CDAMOSTRA
+                LEFT JOIN USUARIO U ON U.CDUSUARIO = H.CDUSUARIO
+                INNER JOIN UDSAMOSTRA UD ON UD.CDAMOSTRA = A.CDAMOSTRA
+                INNER JOIN EMPRESA CONT ON CONT.CDEMPRESA = A.CDEMPRESACON
+                WHERE
+                    A.FLATIVO = 'S'
+                    AND A.CDCLASSEAMOSTRA = 1
+                    AND P.VERPROCESSO = (SELECT MAX(VERPROCESSO) FROM PROCESSO WHERE IDAUXPROCESSO = P.IDAUXPROCESSO)
+                    AND a.CDAMOSTRA = ?
+            ", [$cdamostra]);
+
+            // --- CORRECCIÓN AQUÍ: Convertir el objeto stdClass a array ---
+            return collect($results)->map(function ($item) {
+                return (array) $item; // Convertir cada objeto stdClass a array
+            })->first(); // Y luego tomar el primer elemento
+        } catch (Exception $e) {
+            Log::error("MyLimsService: Error en getSampleExtendedDetailsForDisplay para cdamostra {$cdamostra}: " . $e->getMessage(), ['exception' => $e]);
+            throw new Exception("Error al obtener detalles extendidos de la muestra: " . $e->getMessage());
+        }
+    }
 }
