@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,13 +19,13 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name', // Mantenemos este para el nombre completo
+        'name',
         'email',
         'password',
-        'direccion', // Nuevo campo
-        'telefono', // Nuevo campo
-        'country_id', // Nueva FK
-        'company_id', // Nueva FK (nullable)
+        'direccion',
+        'telefono',
+        'country_id',
+        'company_id',
     ];
 
     /**
@@ -38,6 +37,13 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    /**
+     * The relationships that should always be loaded.
+     *
+     * @var array
+     */
+    protected $with = ['roles']; // <-- AÑADE ESTA LÍNEA
 
     /**
      * Get the attributes that should be cast.
@@ -54,49 +60,29 @@ class User extends Authenticatable
 
     // --- Relaciones ---
 
-    /**
-     * El país al que pertenece el usuario.
-     */
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
     }
 
-    /**
-     * La empresa a la que pertenece el usuario.
-     * Puede ser null para administradores.
-     */
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    /**
-     * Los roles que tiene el usuario. (Relación muchos a muchos)
-     */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
     }
 
-    // --- Helpers (Opcional pero útil) ---
 
-    /**
-     * Comprueba si el usuario tiene un rol específico.
-     */
-    public function hasRole(string $role): bool
+    public function hasRole(string $roleName): bool // <-- Cambiado el nombre de la variable para evitar confusión
     {
-        // Carga los roles si no están cargados para evitar N+1 en algunos casos
-        // aunque contains en una colección ya cargada es eficiente.
-        return $this->roles->contains('name', $role);
+        return $this->roles->contains('name', $roleName);
     }
 
-    /**
-     * Comprueba si el usuario tiene alguno de los roles dados.
-     */
-    public function hasAnyRole(array $roles): bool
+    public function hasAnyRole(array $roleNames): bool // <-- Cambiado el nombre de la variable
     {
-        // Carga los roles si no están cargados
-        return $this->roles->pluck('name')->intersect($roles)->isNotEmpty();
+        return $this->roles->pluck('name')->intersect($roleNames)->isNotEmpty();
     }
 }

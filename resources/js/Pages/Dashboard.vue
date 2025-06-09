@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { defineProps, ref, onMounted } from 'vue'; // Importa onMounted
+import { defineProps, ref, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 
 import MuestrasTable from '@/Components/MuestrasTable.vue';
@@ -10,11 +10,11 @@ import MuestrasFilters from '@/Components/MuestrasFilters.vue';
 const props = defineProps({
     registros: {
         type: Array,
-        default: () => [] // Podría ser un array vacío si viene de la carga inicial GET
+        default: () => []
     },
     filters: {
         type: Object,
-        default: () => ({ unit: 'Food', status: '3' /* otros defaults si los tienes */ })
+        default: () => ({ unit: 'Food', status: '3' })
     },
     selectedUnit: {
         type: String,
@@ -23,23 +23,25 @@ const props = defineProps({
     error: {
         type: String,
         default: null
+    },
+    mrlReportEnabled: { // <-- AÑADIR ESTA NUEVA PROP
+        type: Boolean,
+        default: true
     }
 });
 
-const currentRegistros = ref(props.registros); // Nuevo ref para los registros
-const currentFilters = ref(props.filters); // Nuevo ref para los filtros
-const currentError = ref(props.error); // Nuevo ref para el error
-const loading = ref(props.registros.length === 0 && !props.error); // Inicializa loading a true si no hay registros y no hay error inicial
+const currentRegistros = ref(props.registros);
+const currentFilters = ref(props.filters);
+const currentError = ref(props.error);
+const loading = ref(props.registros.length === 0 && !props.error);
 
-// Función para aplicar filtros haciendo una petición POST a Inertia
 const applyFilters = (newFilters) => {
-    // Actualizar los filtros actuales antes de la petición
     currentFilters.value = { ...currentFilters.value, ...newFilters };
     console.log('Aplicando filtros (POST) desde Dashboard:', currentFilters.value);
     loading.value = true;
-    currentError.value = null; // Limpiar errores anteriores
+    currentError.value = null;
 
-    router.post(route('dashboard'), currentFilters.value, { // Usamos currentFilters.value
+    router.post(route('dashboard'), currentFilters.value, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -47,6 +49,8 @@ const applyFilters = (newFilters) => {
             currentRegistros.value = page.props.registros;
             currentFilters.value = page.props.filters;
             currentError.value = page.props.error;
+            // No necesitas actualizar mrlReportEnabled aquí porque es un flag global
+            // que se mantiene constante a menos que se recargue la página.
         },
         onFinish: () => { loading.value = false; },
         onError: (errors) => {
@@ -57,13 +61,10 @@ const applyFilters = (newFilters) => {
     });
 };
 
-// --- CAMBIO CLAVE AQUÍ: Cargar datos al montar el componente si no vienen iniciales ---
 onMounted(() => {
-    // Si la propiedad 'registros' está vacía y no hay un error inicial,
-    // significa que estamos en la primera carga (GET), así que disparamos la carga.
     if (props.registros.length === 0 && !props.error) {
         console.log('Dashboard montado, iniciando carga de datos inicial...');
-        applyFilters(props.filters); // Reutilizamos applyFilters para la carga inicial
+        applyFilters(props.filters);
     }
 });
 </script>
@@ -94,8 +95,7 @@ onMounted(() => {
                     </div>
 
                     <div v-show="!loading">
-                        <MuestrasTable :items="currentRegistros" :rows="20" />
-                        <div v-if="!loading && currentRegistros.length === 0 && !currentError"
+                        <MuestrasTable :items="currentRegistros" :rows="20" :mrl-report-enabled="props.mrlReportEnabled" /> <div v-if="!loading && currentRegistros.length === 0 && !currentError"
                             class="p-6 text-center text-gray-500">
                             No se encontraron registros con los filtros aplicados.
                         </div>

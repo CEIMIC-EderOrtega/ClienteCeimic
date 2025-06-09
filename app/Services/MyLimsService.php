@@ -9,23 +9,11 @@ use Illuminate\Support\Carbon;
 use Exception;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Support\Arr; // Para facilitar el manejo de arrays
+use Illuminate\Support\Facades\Config; // <-- Importa la fachada Config
 
 class MyLimsService
 {
-    /**
-     * Obtiene todos los registros sin paginación (para carga inicial completa).
-     */
-    /* public function obtenerTodosRegistros(string $email): array
-    {
-        $fullResults = DB::connection('mylims')->select(
-            'EXEC CLink_obtenerRegistros @email = ?',
-            [$email]
-        );
 
-        return collect($fullResults)
-            ->map(fn($item) => (array) $item)
-            ->all();
-    }*/
     public function obtenerRegistrosEnviro(string $email): array
     {
         //jalar infformacion aparte de clink_obtenerRegistros
@@ -44,21 +32,15 @@ class MyLimsService
     }
     public function FilterNewFood(string $email, array $filters): array
     {
-        //dd("FilterNewFood: " . $email . " - " . json_encode($filters));
-        // Obtener el ID de estado como string desde los filtros (ej: "2", "3", "4", "10")
-        // Si no viene $filters['status'], por defecto será "4".
+
         $status_id_string = Arr::get($filters, 'status', '4');
 
-        // Validar que el ID de estado sea uno de los conocidos para evitar errores.
-        // Estos son los values que usa tu <select> en MuestrasFilters.vue
+
         $valid_status_ids = ['2', '10', '3', '4'];
         if (!in_array($status_id_string, $valid_status_ids)) {
             $status_id_string = '4'; // Si no es válido, usar '4' (Publicado) como defecto seguro.
         }
 
-        // *** LA CORRECCIÓN MÁS IMPORTANTE ESTÁ AQUÍ ***
-        // Convertir el ID de estado (que es un string como "4") a un entero (int).
-        // Esto es lo que el Stored Procedure espera para @Sit.
         $status_param_for_sp = (int) $status_id_string;
         //dd($filters, $status_param_for_sp);
         // El resto de la lógica para obtener otros filtros y fechas:
@@ -111,9 +93,24 @@ class MyLimsService
                 // Si quieres verlo en la respuesta (solo para depurar, no en producción):
 
             }
+            // --- AÑADE ESTO: Determinar si el botón MRL está habilitado globalmente ---
+            $mrlReportEnabled = Config::get('features.mrl_report_enabled');
+            // --- FIN AÑADIDO ---
+
             // --- FIN Bloque de Depuración ---
-            return collect($results)->map(function ($item) {
-                return (array) $item;
+            return collect($results)->map(function ($item) use ($mrlReportEnabled) { // <-- Pasa $mrlReportEnabled a la closure
+                $itemArray = (array) $item;
+                // --- AÑADE ESTO: Añadir el flag de visibilidad MRL a cada registro ---
+                // Esto es solo para que el frontend pueda leerlo fácilmente si lo necesita,
+                // aunque la lógica de visibilidad final la haremos con una prop global.
+                // Es un paso adicional pero podría ser útil si el comportamiento MRL es por fila.
+                // Para tu caso, con una prop global, este map no es estrictamente necesario,
+                // pero lo dejo como un ejemplo de cómo podrías enriquecer los datos por fila.
+                // La solución más sencilla es pasar el flag directamente desde el controlador.
+                // Lo comentaré a continuación.
+                $itemArray['mrl_report_enabled_global'] = $mrlReportEnabled;
+                // --- FIN AÑADIDO ---
+                return $itemArray;
             })->all();
         } catch (Exception $e) {
             // Tu log de error
@@ -136,95 +133,6 @@ class MyLimsService
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
-
-    /**
-     * Obtiene registros para la unidad 'Food' aplicando filtros complejos.
-     * Llama al SP CLink_obtenerRegistrosFoodFiltrados.
-     */
-    /* public function obtenerRegistrosFoodFiltrados(string $email, array $filters): array
-    {
-        $statusLogicMap = [
-
-            '4' => 'publicada_no_enviada',
-            '111' => 'enviada_portal',
-            'finalizada' => 'finalizada',
-            'publicada' => 'publicada_no_enviada',
-            'enviada' => 'enviada_portal',
-        ];
-        $status_logic = $statusLogicMap[$filters['status'] ?? '3'] ?? 'finalizada';
-        dd($statusLogicMap);
-        $today = Carbon::today();
-        $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
-        $defaultHasta = $today->format('Y-m-d');
-
-        $desde = Carbon::parse(Arr::get($filters, 'desde', $defaultDesde))->startOfDay();
-        $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
-        $grupo = Arr::get($filters, 'search_grupo');
-        $processo = Arr::get($filters, 'search_processo');
-        $numero = Arr::get($filters, 'search_numero');
-        $idamostra = Arr::get($filters, 'search_idamostra');
-        $solicitante = Arr::get($filters, 'search_solicitante');
-        $tipo = Arr::get($filters, 'search_tipo');
-        $cdamostra = Arr::get($filters, 'search_cdamostra');
-
-        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados', [
-            'email' => $email,
-            'status_logic' => $status_logic,
-            'desde' => $desde->toDateTimeString(),
-            'hasta' => $hasta->toDateTimeString(),
-            'grupo' => $grupo,
-            'processo' => $processo,
-            'numero' => $numero,
-            'idamostra' => $idamostra,
-            'solicitante' => $solicitante,
-            'tipo' => $tipo,
-            'cdamostra' => $cdamostra,
-        ]);
-
-        try {
-            $results = DB::connection('mylims')->select(
-                'EXEC CLink_obtenerRegistrosFoodFiltrados @email = ?, @status_logic = ?, @desde = ?, @hasta = ?, @grupo = ?, @processo = ?, @numero = ?, @idamostra = ?, @solicitante = ?, @tipo = ?, @cdamostra = ?',
-                [
-                    $email,
-                    $status_logic,
-                    $desde,
-                    $hasta,
-                    $grupo,
-                    $processo,
-                    $numero,
-                    $idamostra,
-                    $solicitante,
-                    $tipo,
-                    $cdamostra
-                ]
-            );
-
-            // Convertir resultados a array (como estaba antes)
-            return collect($results)->map(function ($item) {
-                $itemArray = (array) $item;
-                // Opcional: Formatear fechas si es necesario para Vue
-                // foreach ($itemArray as $key => $value) {
-                //     if ($value instanceof Carbon || $value instanceof \DateTime) {
-                //          $itemArray[$key] = Carbon::parse($value)->format('d/m/Y'); // Ejemplo formato
-                //     }
-                // }
-                return $itemArray;
-            })->all();
-        } catch (Exception $e) { // <-- La excepción se captura en $e
-
-            // *** CORRECCIÓN AQUÍ ***
-            // Cambiamos compact('filters', 'exception') por un array explícito
-            // que incluye la variable correcta $e
-            Log::error("Error en MyLimsService::obtenerRegistrosFoodFiltrados para {$email}", [
-                'filters' => $filters,
-                'exception' => $e // Pasamos el objeto Exception directamente
-            ]);
-            // *** FIN CORRECCIÓN ***
-
-            // Lanzamos la excepción para que el controlador la capture y muestre el error genérico
-            throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
-        }
-    }*/
 
 
 

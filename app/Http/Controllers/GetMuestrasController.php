@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Exception;
+use Illuminate\Support\Facades\Config;
 
 class GetMuestrasController extends Controller
 {
@@ -25,16 +26,13 @@ class GetMuestrasController extends Controller
         $unit = 'Food'; // Unidad fija
         $filters = $request->except('unit'); // Obtener todos los filtros excepto 'unit'
 
-        // Log::info("Cargando dashboard (Unidad Forzada: Food)", [
-        //     'method' => $request->method(),
-        //     'email' => $email,
-        //     'unit_forced' => $unit,
-        //     'filters_received' => $filters
-        // ]);
+
 
         $registros = []; // Inicializamos registros como un array vacío por defecto
         $error = null;
-
+        $mrlReportEnabled = Config::get('features.mrl_report_enabled');
+        Log::info("Feature Flag MRL: " . ($mrlReportEnabled ? 'Habilitado' : 'Deshabilitado'));
+        // --- FIN AÑADIDO ---
         // --- CAMBIO CLAVE AQUÍ: Cargar registros solo si es una petición POST ---
         if ($request->isMethod('post')) {
             try {
@@ -58,7 +56,8 @@ class GetMuestrasController extends Controller
             'registros' => $registros, // Ahora puede ser vacío en la carga inicial
             'filters' => $initialFilters,
             'selectedUnit' => $unit,
-            'error' => $error
+            'error' => $error,
+            'mrlReportEnabled' => $mrlReportEnabled
         ]);
     }
 

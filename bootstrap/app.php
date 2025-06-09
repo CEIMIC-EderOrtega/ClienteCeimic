@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        // --- AÑADE ESTA SECCIÓN PARA REGISTRAR EL ALIAS DEL MIDDLEWARE ---
+        $middleware->alias([
+            'role' => \App\Http\Middleware\CheckRole::class,
+        ]);
+        // --- FIN DE LA SECCIÓN AÑADIDA ---
+
         //
     })
     ->withExceptions(function (Exceptions $exceptions) {

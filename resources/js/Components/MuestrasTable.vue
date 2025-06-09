@@ -67,8 +67,7 @@ const areAllSelectedPermitidos = computed(() => {
     return selectedItems.value.every(item => isSituacaoPermitida(item));
 });
 
-// Determina si el botón MRL debe mostrarse.
-// REEMPLAZA TU 'showMrlButton' ACTUAL CON ESTA NUEVA VERSIÓN:
+
 const showMrlButton = computed(() => {
     // 1. Pre-condición: Debe haber EXACTAMENTE UN ítem seleccionado.
     if (selectedItems.value.length !== 1) {
@@ -78,14 +77,17 @@ const showMrlButton = computed(() => {
     const unicoItemSeleccionado = selectedItems.value[0];
 
     // 2. Pre-condición: Ese ítem debe tener mrl == 1.
-    if (unicoItemSeleccionado.mrl != 1) { // Usamos != en vez de !== para flexibilidad con tipos
+    if (unicoItemSeleccionado.mrl != 1) {
         return false;
     }
 
     // 3. Pre-condición: Ese ítem debe tener una situación permitida.
-    return isSituacaoPermitida(unicoItemSeleccionado);
-});
+    const isSituacaoOk = isSituacaoPermitida(unicoItemSeleccionado);
 
+    // --- AÑADE ESTO: EL BOTÓN SÓLO SE MUESTRA SI mrlReportEnabled ES TRUE ---
+    return props.mrlReportEnabled && isSituacaoOk;
+    // --- FIN AÑADIDO ---
+});
 
 // Propiedad computada para la visibilidad del botón "Informe"
 const showInformeButton = computed(() => {
@@ -223,6 +225,10 @@ async function handleGenerateMrlReport() {
 const props = defineProps({
     items: { type: Array, default: () => [] },
     rows: { type: Number, default: 10 },
+    mrlReportEnabled: { // <-- NUEVA PROP: Habilitar/Deshabilitar botón MRL desde backend
+        type: Boolean,
+        default: true // Por defecto visible si no se especifica
+    }
 });
 
 // Definición de estilos para el Excel con enfoque UX/UI mejorado
@@ -316,7 +322,7 @@ const definedColumns = ref([
     { field: "Situacao", header: "Situacao" },
     { field: "Data_Situacao", header: "Data_Situacao" },
     { field: "cdunidade", header: "cdunidade" },
-    { field: "moroso", header: "Moroso" },
+    // { field: "moroso", header: "Moroso" },
     { field: "mrl", header: "MRL" },
     { field: "mercados", header: "Mercados" },
     { field: "retailers", header: "Retailers" },
@@ -872,7 +878,7 @@ async function fetchExtendedDetails(cdamostra) {
         extendedDetailRecord.value = {};
     }
 }
-// --- EJECUTAR ACCIONES (Informe, Cadena) ---
+
 async function ejecutarInforme() {
     // Aquí la validación se hace con `showInformeButton`, que ya considera la Situacao.
     if (!selectedItems.value.length || !showInformeButton.value) {
@@ -882,10 +888,25 @@ async function ejecutarInforme() {
         });
         return;
     }
+
+    // Comprobar si alguna muestra seleccionada es morosa
+    const moroseSamples = selectedItems.value.filter(item => item.moroso === 'S');
+
+    if (moroseSamples.length > 0) {
+        let sampleIds = moroseSamples.map(item => item['Id. Amostra'] || item.cdamostra).join(', ');
+        if (sampleIds.length > 100) { // Cortar si la lista de IDs es muy larga para el mensaje
+            sampleIds = sampleIds.substring(0, 100) + '...';
+        }
+
+        toast.error(`No es posible generar el informe. La(s) muestra(s) con ID(s) ${sampleIds} registra(n) un estado de morosidad. Por favor, contacte a su asesor de cuenta para regularizar la situación.`, {
+            timeout: 8000, // Dar más tiempo para leer este mensaje importante
+            position: POSITION.TOP_CENTER,
+        });
+        return; // Detener la ejecución si hay muestras morosas
+    }
+
     isGenerating.value = true;
     try {
-        // Filtrar aquí para asegurar que solo se envíen IDs de muestras con situación permitida,
-        // aunque `showInformeButton` ya debería garantizarlo.
         const idsToProcess = selectedItems.value
             .filter(item => isSituacaoPermitida(item))
             .map((i) => i.cdamostra);
@@ -960,9 +981,8 @@ async function handleExportBackend() {
 
         // --- CORRECCIÓN CLAVE AQUÍ: Definir el nombre del archivo directamente ---
         // Ya que el Content-Disposition del backend a veces no se parsea bien con responseType: 'blob'
-        const filename = `Resultados_Muestra_${
-            detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
-        }.xlsx`;
+        const filename = `Resultados_Muestra_${detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
+            }.xlsx`;
         // No necesitamos la lógica de `if (header)` si definimos el nombre directamente.
 
         // Comprobar si la respuesta es un error en formato JSON en lugar de un blob
@@ -986,7 +1006,7 @@ async function handleExportBackend() {
             position: POSITION.TOP_CENTER,
         });
 
-    } catch (error)  {
+    } catch (error) {
         console.error("Error al exportar Excel desde el backend:", error);
         const errorMessage = error.response?.data?.message || error.message || "Error desconocido al generar el Excel.";
         toast.error(`Error al generar Excel: ${errorMessage}`, {
