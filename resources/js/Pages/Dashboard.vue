@@ -1,25 +1,24 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { defineProps, ref } from 'vue';
+import { defineProps, ref, onMounted } from 'vue'; // Importa onMounted
 import { router } from '@inertiajs/vue3';
 
 import MuestrasTable from '@/Components/MuestrasTable.vue';
-import MuestrasFilters from '@/Components/MuestrasFilters.vue'; // Ya tienes esto
+import MuestrasFilters from '@/Components/MuestrasFilters.vue';
 
 const props = defineProps({
     registros: {
         type: Array,
-        default: () => []
+        default: () => [] // Podría ser un array vacío si viene de la carga inicial GET
     },
-    filters: { // Estos son los filtros que vienen del backend tras una carga/filtrado
+    filters: {
         type: Object,
-        // Asegurar que el default inicial refleje la unidad 'Food'
         default: () => ({ unit: 'Food', status: '3' /* otros defaults si los tienes */ })
     },
-    selectedUnit: { // Esta prop ahora siempre será 'Food' desde el controlador
+    selectedUnit: {
         type: String,
-        default: 'Food' // Default en el frontend
+        default: 'Food'
     },
     error: {
         type: String,
@@ -27,41 +26,60 @@ const props = defineProps({
     }
 });
 
-const loading = ref(false);
+const currentRegistros = ref(props.registros); // Nuevo ref para los registros
+const currentFilters = ref(props.filters); // Nuevo ref para los filtros
+const currentError = ref(props.error); // Nuevo ref para el error
+const loading = ref(props.registros.length === 0 && !props.error); // Inicializa loading a true si no hay registros y no hay error inicial
 
 // Función para aplicar filtros haciendo una petición POST a Inertia
-// Esta función es llamada por el evento @update-filters de MuestrasFilters
-const applyFilters = (newFilters) => { // newFilters ya viene con unit: 'Food'
-    console.log('Aplicando filtros (POST) desde Dashboard (disparado por botón):', newFilters);
+const applyFilters = (newFilters) => {
+    // Actualizar los filtros actuales antes de la petición
+    currentFilters.value = { ...currentFilters.value, ...newFilters };
+    console.log('Aplicando filtros (POST) desde Dashboard:', currentFilters.value);
     loading.value = true;
+    currentError.value = null; // Limpiar errores anteriores
 
-    router.post(route('dashboard'), newFilters, {
+    router.post(route('dashboard'), currentFilters.value, { // Usamos currentFilters.value
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        onStart: () => { loading.value = true; },
+        onSuccess: (page) => {
+            currentRegistros.value = page.props.registros;
+            currentFilters.value = page.props.filters;
+            currentError.value = page.props.error;
+        },
         onFinish: () => { loading.value = false; },
         onError: (errors) => {
             console.error('Error de Inertia al aplicar filtros (POST):', errors);
+            currentError.value = 'Error al cargar los datos. Por favor, inténtelo de nuevo.';
             loading.value = false;
         }
     });
 };
+
+// --- CAMBIO CLAVE AQUÍ: Cargar datos al montar el componente si no vienen iniciales ---
+onMounted(() => {
+    // Si la propiedad 'registros' está vacía y no hay un error inicial,
+    // significa que estamos en la primera carga (GET), así que disparamos la carga.
+    if (props.registros.length === 0 && !props.error) {
+        console.log('Dashboard montado, iniciando carga de datos inicial...');
+        applyFilters(props.filters); // Reutilizamos applyFilters para la carga inicial
+    }
+});
 </script>
 
 <template>
-
     <Head title="Dashboard Muestras Food" />
     <AuthenticatedLayout>
         <div class="py-8 md:py-12">
             <div class="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
-                <div v-if="props.error"
+                <div v-if="currentError"
                     class="mb-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm shadow">
-                    <strong>Error:</strong> {{ props.error }}
+                    <strong>Error:</strong> {{ currentError }}
                 </div>
 
                 <div class="bg-white overflow-hidden shadow-lg sm:rounded-lg p-4">
-                    <MuestrasFilters :initial-filters="props.filters" @update-filters="applyFilters" />
+                    <MuestrasFilters :initial-filters="currentFilters" @update-filters="applyFilters" />
 
                     <div v-if="loading" class="text-center py-10 text-gray-500">
                         <svg class="animate-spin h-6 w-6 inline-block mr-2 text-blue-600"
@@ -76,8 +94,8 @@ const applyFilters = (newFilters) => { // newFilters ya viene con unit: 'Food'
                     </div>
 
                     <div v-show="!loading">
-                        <MuestrasTable :items="props.registros" :rows="20" />
-                        <div v-if="!loading && props.registros.length === 0 && !props.error"
+                        <MuestrasTable :items="currentRegistros" :rows="20" />
+                        <div v-if="!loading && currentRegistros.length === 0 && !currentError"
                             class="p-6 text-center text-gray-500">
                             No se encontraron registros con los filtros aplicados.
                         </div>

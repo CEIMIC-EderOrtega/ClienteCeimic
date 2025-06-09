@@ -234,7 +234,7 @@ class ExcelExportService
         $writer->save($tempFilePath);
 
         // Nombre de archivo deseado para la descarga del usuario
-        $desiredFilename = 'Resultados_Muestra_' . ($detailRecord['Id. Amostra'] ?? $detailRecord['cdamostra'] ?? 'export') . '.xlsx';
+        $desiredFilename = 'Resultados_Muestra_' . ($detailRecord['cdamostra'] ?? 'export') . '.xlsx';
 
         // Retorna la ruta del archivo temporal Y el nombre deseado
         return [

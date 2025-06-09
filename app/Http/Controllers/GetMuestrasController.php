@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Services\MyLimsService;
 use Illuminate\Http\Request;
-use Inertia\Inertia; // Si usas Inertia para la vista que hace la llamada
+use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth; // <--- Importa la fachada Auth
-use Illuminate\Http\JsonResponse; // Para el tipo de retorno JSON
-use Exception; // Importar Exception
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\JsonResponse;
+use Exception;
 
 class GetMuestrasController extends Controller
 {
@@ -18,63 +18,49 @@ class GetMuestrasController extends Controller
     {
         $this->myLimsService = $myLimsService;
     }
+
     public function index(Request $request)
     {
         $email = Auth::user()->email;
-
-        // FORZAR UNIDAD A 'Food' Y QUITAR LA LÓGICA DE SELECCIÓN DE UNIDAD
         $unit = 'Food'; // Unidad fija
-        $filters = $request->isMethod('post') ? $request->except('unit') : $request->query();
-        if (isset($filters['unit'])) {
-            unset($filters['unit']); // Nos aseguramos que 'unit' de los filtros no interfiera
-        }
+        $filters = $request->except('unit'); // Obtener todos los filtros excepto 'unit'
 
+        // Log::info("Cargando dashboard (Unidad Forzada: Food)", [
+        //     'method' => $request->method(),
+        //     'email' => $email,
+        //     'unit_forced' => $unit,
+        //     'filters_received' => $filters
+        // ]);
 
-        Log::info("Cargando dashboard (Unidad Forzada: Food)", [ // Mensaje de log actualizado
-            'method' => $request->method(),
-            'email' => $email,
-            'unit_forced' => $unit, // Indicar que la unidad es forzada
-            'filters_received' => $filters // Mostrar los filtros que realmente se usan
-        ]);
-        //dd($request);
-        try {
-            // LA LÓGICA AHORA SIEMPRE ES PARA 'Food'
-            //dd($filters); // Para depurar los filtros recibidosdd($filters); // Para depurar los filtros recibidos
-            $registros = $this->myLimsService->FilterNewFood($email, $filters);
-            Log::info("Registros Food obtenidos:", ['count' => count($registros)]);
+        $registros = []; // Inicializamos registros como un array vacío por defecto
+        $error = null;
 
-            /* --- SECCIÓN ENVIRO COMENTADA ---
-            if ($unit === 'Food') { // Esta condición ya no es necesaria, se mantiene por si se revierte
-                 $registros = $this->myLimsService->obtenerRegistrosFoodFiltrados($email, $filters);
-                 Log::info("Registros Food obtenidos:", ['count' => count($registros)]);
-            } else { // 'Enviro'
-                 // Asegúrate que obtenerRegistrosEnviro acepte filtros si es necesario
-                 // o modifícalo para aceptar $filters
-                 // $registros = $this->myLimsService->obtenerRegistrosEnviro($email, $filters); // Ejemplo si aceptara filtros
-                 $registros = $this->myLimsService->obtenerRegistrosEnviro($email); // Manteniendo versión original por ahora
-                 Log::info("Registros Enviro obtenidos:", ['count' => count($registros)]);
+        // --- CAMBIO CLAVE AQUÍ: Cargar registros solo si es una petición POST ---
+        if ($request->isMethod('post')) {
+            try {
+                // Aquí usamos los filtros recibidos del POST
+                $registros = $this->myLimsService->FilterNewFood($email, $filters);
+                Log::info("Registros Food obtenidos por POST:", ['count' => count($registros)]);
+            } catch (Exception $e) {
+                Log::error("Error al cargar muestras en GetMuestrasController (Forzado Food) en POST request: " . $e->getMessage(), ['exception' => $e]);
+                $error = 'Error al cargar muestras. Intente de nuevo o contacte soporte.';
             }
-            */
-
-            return Inertia::render('Dashboard', [
-                'registros' => $registros,
-                // Pasamos los filtros que se usaron (sean de query o de post)
-                // y añadimos 'unit' de vuelta para la prop `initialFilters` para que Dashboard.vue sepa que es 'Food'
-                'filters' => $filters + ['unit' => $unit],
-                'selectedUnit' => $unit, // Pasar la unidad explícitamente (siempre 'Food')
-                'error' => null
-            ]);
-        } catch (Exception $e) {
-            Log::error("Error al cargar muestras en GetMuestrasController (Forzado Food): " . $e->getMessage(), ['exception' => $e]);
-            return Inertia::render('Dashboard', [
-                'registros' => [],
-                'filters' => $filters + ['unit' => $unit],
-                'selectedUnit' => $unit,
-                'error' => 'Error al cargar muestras. Intente de nuevo o contacte soporte.'
-            ]);
+        } else {
+            // Si es una petición GET (carga inicial de la página), no cargamos registros
+            Log::info("Dashboard cargado inicialmente sin registros (petición GET).");
         }
-    }
+        // --- FIN CAMBIO CLAVE ---
 
+        // Asegurarse de que los filtros iniciales para el frontend incluyan la unidad
+        $initialFilters = $filters + ['unit' => $unit];
+
+        return Inertia::render('Dashboard', [
+            'registros' => $registros, // Ahora puede ser vacío en la carga inicial
+            'filters' => $initialFilters,
+            'selectedUnit' => $unit,
+            'error' => $error
+        ]);
+    }
 
     /**
      * Procesa la solicitud para extraer laudos de muestras seleccionadas.

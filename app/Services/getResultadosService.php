@@ -36,7 +36,8 @@ class getResultadosService
                             m.descmetodo AS METODO,
                             VS.NMVS AS PARAMETRO,
                             VSA.VLVS AS RES,
-                            VSA.UNIDADE AS UNID
+                            VSA.UNIDADE AS UNID,
+                            T.NMTIPOAMOSTRA as MATRIZ
                         FROM
                             AMOSTRA A
                             INNER JOIN TIPOAMOSTRA T ON T.CDTIPOAMOSTRA = A.CDTIPOAMOSTRA
