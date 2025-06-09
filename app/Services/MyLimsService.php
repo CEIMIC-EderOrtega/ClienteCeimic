@@ -134,9 +134,78 @@ class MyLimsService
         }
     }
 
+    /**
+     * REPLICA DE FilterNewFood.
+     * Obtiene los registros crudos llamando al mismo SP, para ser procesados en el controlador.
+     * Los parámetros son obligatorios para el SP, por lo que se envían valores por defecto desde el controlador.
+     *
+     * @param array $filters Filtros de la solicitud.
+     * @return array Un array de registros.
+     * @throws Exception
+     */
+    public function getRawDataForDashboard(array $filters): array
+    {
+        // Lógica de validación y valores por defecto idéntica a FilterNewFood
+        $status_id_string = Arr::get($filters, 'status', '4');
+        $valid_status_ids = ['2', '10', '3', '4'];
+        if (!in_array($status_id_string, $valid_status_ids)) {
+            $status_id_string = '4';
+        }
+        $status_param_for_sp = (int) $status_id_string;
+
+        $today = Carbon::today();
+        $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
+        $defaultHasta = $today->format('Y-m-d');
+
+        // Los filtros que usará el SP. Vienen del controlador.
+        $desde = Carbon::parse(Arr::get($filters, 'desde', $defaultDesde))->startOfDay();
+        $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
+        $solicitante = Arr::get($filters, 'search_solicitante'); // Este será un string con el nombre
+        $tipo = Arr::get($filters, 'search_tipo');             // Este será un string con el tipo
+
+        // Estos parámetros son parte del SP original, los pasamos como null si no se usan en el nuevo dashboard.
+        $grupo = Arr::get($filters, 'search_grupo', null);
+        $processo = Arr::get($filters, 'search_processo', null);
+        $numero = Arr::get($filters, 'search_numero', null);
+        $idamostra = Arr::get($filters, 'search_idamostra', null);
+        $cdamostra = Arr::get($filters, 'search_cdamostra', null);
+
+        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 para Dashboard con:', [
+            'Sit' => $status_param_for_sp,
+            'Solicitante' => $solicitante,
+            'Tipo' => $tipo,
+            'Desde' => $desde->toDateTimeString(),
+            'Hasta' => $hasta->toDateTimeString(),
+        ]);
+
+        try {
+            $results = DB::connection('mylims')->select(
+                // El SP espera todos los parámetros. Pasamos null a los que no usamos.
+                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?',
+                [
+                    $status_param_for_sp,
+                    $solicitante,
+                    $grupo,
+                    $tipo,
+                    $cdamostra,
+                    $idamostra,
+                    $processo,
+                    $numero,
+                    $desde,
+                    $hasta
+                ]
+            );
+
+            return collect($results)->map(fn($item) => (array) $item)->all();
+        } catch (Exception $e) {
+            Log::error("Error en MyLimsService::getRawDataForDashboard", [
+                'exception_message' => $e->getMessage()
+            ]);
+            throw new Exception("Error al obtener datos crudos para el dashboard: " . $e->getMessage());
+        }
+    }
 
 
-    // ... (Asegúrate de tener el método extraerMultiplesLaudos aquí también si lo usas)
     public function extraerMultiplesLaudos(string $email, array $selectedIds): array
     {
         // Implementación para extraer laudos...
@@ -163,10 +232,6 @@ class MyLimsService
         return $laudos;
     }
 
-    /**
-     * Extrae los laudos para una lista de IDs de muestra.
-     * Si son más de uno, los comprime en un ZIP.
-     */
     public function extraerLaudos(array $idsAmostra): array
     {
         if (empty($idsAmostra)) {
@@ -240,9 +305,7 @@ class MyLimsService
         }
     }
 
-    /**
-     * Descomprime datos zlib o gz
-     */
+
     protected function decompressZlib(?string $data): ?string
     {
         if (empty($data)) {
@@ -262,13 +325,7 @@ class MyLimsService
 
         return $out;
     }
-    /**
-     * Verifica el estado de un email en la base de datos externa (CEIMIC/NPU).
-     * Retorna un array indicando el estado y el código de país (si aplica):
-     * ['status' => 'ni', 'country_code' => null] si el email contiene 'ceimic'.
-     * ['status' => 'ok', 'country_code' => '...'] si el email está registrado y activo.
-     * ['status' => 'no', 'country_code' => null] si el email no está registrado o no está activo/no moroso.
-     */
+
     public function checkCeimicEmailStatus(string $email): array
     {
         $email = strtolower($email);

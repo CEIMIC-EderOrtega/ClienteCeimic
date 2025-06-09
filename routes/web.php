@@ -14,6 +14,7 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\GetResultsAmostrasController;
 use App\Http\Controllers\GetSampleDetailsController;
 use App\Http\Controllers\ExcelExportController;
+use App\Http\Controllers\PrincipalDashboardController;
 
 Route::redirect('/', '/login');
 
@@ -43,6 +44,10 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/export-sample-details-excel', [ExcelExportController::class, 'exportSampleDetails'])
         ->name('muestras.exportExcelBackend');
+
+    // === NUEVA RUTA PARA EL DASHBOARD PRINCIPAL ===
+    // CÓDIGO CORREGIDO
+Route::match(['get', 'post'], '/principal-dashboard', [PrincipalDashboardController::class, 'index'])->name('principal.dashboard');
 });
 
 // --- CAMBIO CLAVE AQUÍ: Aplicar el middleware 'role:Administrador' ---

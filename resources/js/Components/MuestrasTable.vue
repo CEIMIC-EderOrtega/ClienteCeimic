@@ -322,7 +322,7 @@ const definedColumns = ref([
     { field: "Situacao", header: "Situacao" },
     { field: "Data_Situacao", header: "Data_Situacao" },
     { field: "cdunidade", header: "cdunidade" },
-    // { field: "moroso", header: "Moroso" },
+    //{ field: "moroso", header: "Moroso" },
     { field: "mrl", header: "MRL" },
     { field: "mercados", header: "Mercados" },
     { field: "retailers", header: "Retailers" },
