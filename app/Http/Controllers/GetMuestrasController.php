@@ -26,8 +26,6 @@ class GetMuestrasController extends Controller
         $unit = 'Food'; // Unidad fija
         $filters = $request->except('unit'); // Obtener todos los filtros excepto 'unit'
 
-
-
         $registros = []; // Inicializamos registros como un array vacío por defecto
         $error = null;
         $mrlReportEnabled = Config::get('features.mrl_report_enabled');

@@ -210,10 +210,7 @@ class ExcelExportService
         foreach ($resultsColumns as $index => $col) {
             // Ajustar el índice de columna para que empiece después de las 4 columnas de detalles (A, B, C, D)
             // Es decir, la primera columna de resultados será la columna E (índice 4 en base 0)
-            $columnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + $numDetailCols + 1); // +1 para base 1 de stringFromColumnIndex
-
-            // PhpSpreadsheet autoSize es útil, pero a veces no perfecto para texto largo o celdas fusionadas.
-            // Es un buen punto de partida.
+            $columnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + $numDetailCols + 1);
             $sheet->getColumnDimension($columnIndex)->setAutoSize(true);
         }
 

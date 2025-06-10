@@ -47,7 +47,7 @@ class ExcelExportController extends Controller
 
             $resultsColumns = [
                 ['field' => "NUMERO", 'header' => "Número"],
-                ['field' => "MATRIZ", 'header' => "Matriz"],
+                ['field' => "MATRIZ", 'header' => "DESCRIPCION DDE LA MUESTRA"],
                 ['field' => "METODO", 'header' => "Método"],
                 ['field' => "PARAMETRO", 'header' => "Parámetro"],
                 ['field' => "RES", 'header' => "Resultado"],

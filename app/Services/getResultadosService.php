@@ -37,7 +37,8 @@ class getResultadosService
                             VS.NMVS AS PARAMETRO,
                             VSA.VLVS AS RES,
                             VSA.UNIDADE AS UNID,
-                            T.NMTIPOAMOSTRA as MATRIZ
+                            --T.NMTIPOAMOSTRA as MATRIZ
+                            case when dbo.infos(A.CDAMOSTRA,677) is null then 'N/A' else dbo.infos(A.CDAMOSTRA,677) end as MATRIZ
                         FROM
                             AMOSTRA A
                             INNER JOIN TIPOAMOSTRA T ON T.CDTIPOAMOSTRA = A.CDTIPOAMOSTRA

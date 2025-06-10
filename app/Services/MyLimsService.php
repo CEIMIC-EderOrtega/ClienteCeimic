@@ -30,11 +30,39 @@ class MyLimsService
             throw new Exception("Error al obtener registros Enviro: " . $e->getMessage());
         }
     }
+    // En app/Services/MyLimsService.php
+
     public function FilterNewFood(string $email, array $filters): array
     {
+        // ==============================================================================
+        // === PASO 1: LÓGICA DE VALIDACIÓN DE PROCESOS (Como la pediste) ===
+        // ==============================================================================
+
+        // 1. Llamamos a la función que busca los procesos del usuario
+        $procesosIniciales = $this->checkProcesosUserEmpresa($email);
+
+        // 2. Transformamos el resultado a un array plano de IDs.
+        $listaDeIds = collect($procesosIniciales)->pluck('CDPROCESSO')->all();
+
+        // 3. Validamos cuáles de esos procesos están realmente activos
+        $procesosActivosString = $this->ValidarProcesosActivosMax($listaDeIds);
+
+        // ==============================================================================
+        // === PASO 2: VERIFICACIÓN Y MANEJO DE ERROR (Lógica de negocio) ===
+        // ==============================================================================
+
+        // Si la lista de procesos activos está vacía, detenemos todo y lanzamos un error.
+        if (empty($procesosActivosString)) {
+            throw new Exception("No hay procesos asignados a su perfil, contactarse con su asesor comercial.");
+        }
+
+        // NOTA: He eliminado el dd() para que la función pueda continuar y no se detenga aquí.
+
+        // ==============================================================================
+        // === PASO 3: LÓGICA ORIGINAL DE FILTROS (Se mantiene igual) ===
+        // ==============================================================================
 
         $status_id_string = Arr::get($filters, 'status', '4');
-
 
         $valid_status_ids = ['2', '10', '3', '4'];
         if (!in_array($status_id_string, $valid_status_ids)) {
@@ -42,8 +70,7 @@ class MyLimsService
         }
 
         $status_param_for_sp = (int) $status_id_string;
-        //dd($filters, $status_param_for_sp);
-        // El resto de la lógica para obtener otros filtros y fechas:
+
         $today = Carbon::today();
         $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
         $defaultHasta = $today->format('Y-m-d');
@@ -51,98 +78,72 @@ class MyLimsService
         $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
         $grupo = Arr::get($filters, 'search_grupo');
         $processo = Arr::get($filters, 'search_processo');
-        $numero = Arr::get($filters, 'search_numero'); // Se envía como string o null, SP lo recibe como VARCHAR
+        $numero = Arr::get($filters, 'search_numero');
         $idamostra = Arr::get($filters, 'search_idamostra');
         $solicitante = Arr::get($filters, 'search_solicitante');
         $tipo = Arr::get($filters, 'search_tipo');
         $cdamostra = Arr::get($filters, 'search_cdamostra');
 
         Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 con parámetros:', [
-            'Sit_INT_param' => $status_param_for_sp, // Se loguea el entero que se enviará
+            'Sit_INT_param' => $status_param_for_sp,
             'Solicitante' => $solicitante,
             'Grupo' => $grupo,
             'Tipo' => $tipo,
             'Cdamostra' => $cdamostra,
             'Idamostra' => $idamostra,
             'Processo' => $processo,
-            'Numero' => $numero, // $numero sigue siendo string o null aquí, SP lo maneja
+            'Numero' => $numero,
             'Desde' => $desde->toDateTimeString(),
             'Hasta' => $hasta->toDateTimeString(),
+            'ProcesosCSV' => $procesosActivosString // Logueamos el nuevo parámetro
         ]);
 
         try {
+            // ==============================================================================
+            // === PASO 4: LLAMADA AL SP (MODIFICADA PARA AÑADIR EL PARÁMETRO) ===
+            // ==============================================================================
+
             $results = DB::connection('mylims')->select(
-                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?',
+                // 4.1: Añadimos @ProcesosCSV = ? al final de la llamada
+                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?, @ProcesosCSV = ?',
                 [
-                    $status_param_for_sp, // *** AQUÍ SE PASA EL ENTERO ***
+                    // 4.2: Añadimos la variable $procesosActivosString al final del array de parámetros
+                    $status_param_for_sp,
                     $solicitante,
                     $grupo,
                     $tipo,
                     $cdamostra,
                     $idamostra,
                     $processo,
-                    $numero,              // Se pasa el string o null que el SP espera como VARCHAR
+                    $numero,
                     $desde,
-                    $hasta
+                    $hasta,
+                    $procesosActivosString // <--- NUEVO PARÁMETRO
                 ]
             );
-            // --- INICIO Bloque de Depuración ---
+
+            // El resto de la función se mantiene igual...
             if (isset($results[0]) && property_exists($results[0], 'GeneratedQueryForDebug')) {
                 $generatedSql = $results[0]->GeneratedQueryForDebug;
                 Log::debug('SQL Generado por el SP: ' . $generatedSql);
-                // Si quieres verlo en la respuesta (solo para depurar, no en producción):
-
             }
-            // --- AÑADE ESTO: Determinar si el botón MRL está habilitado globalmente ---
-            $mrlReportEnabled = Config::get('features.mrl_report_enabled');
-            // --- FIN AÑADIDO ---
 
-            // --- FIN Bloque de Depuración ---
-            return collect($results)->map(function ($item) use ($mrlReportEnabled) { // <-- Pasa $mrlReportEnabled a la closure
+            $mrlReportEnabled = Config::get('features.mrl_report_enabled');
+
+            return collect($results)->map(function ($item) use ($mrlReportEnabled) {
                 $itemArray = (array) $item;
-                // --- AÑADE ESTO: Añadir el flag de visibilidad MRL a cada registro ---
-                // Esto es solo para que el frontend pueda leerlo fácilmente si lo necesita,
-                // aunque la lógica de visibilidad final la haremos con una prop global.
-                // Es un paso adicional pero podría ser útil si el comportamiento MRL es por fila.
-                // Para tu caso, con una prop global, este map no es estrictamente necesario,
-                // pero lo dejo como un ejemplo de cómo podrías enriquecer los datos por fila.
-                // La solución más sencilla es pasar el flag directamente desde el controlador.
-                // Lo comentaré a continuación.
                 $itemArray['mrl_report_enabled_global'] = $mrlReportEnabled;
-                // --- FIN AÑADIDO ---
                 return $itemArray;
             })->all();
         } catch (Exception $e) {
-            // Tu log de error
+            // La captura de errores se mantiene igual
             Log::error("Error en MyLimsService::CLink_obtenerRegistrosFoodFiltrados1", [
                 'input_filters' => $filters,
-                'params_sent_to_sp' => [
-                    'Sit' => $status_param_for_sp,
-                    'Solicitante' => $solicitante,
-                    'Grupo' => $grupo,
-                    'Tipo' => $tipo,
-                    'Cdamostra' => $cdamostra,
-                    'Idamostra' => $idamostra,
-                    'Processo' => $processo,
-                    'Numero' => $numero,
-                    'Desde' => $desde->toDateTimeString(),
-                    'Hasta' => $hasta->toDateTimeString(),
-                ],
                 'exception_message' => $e->getMessage()
             ]);
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
-
-    /**
-     * REPLICA DE FilterNewFood.
-     * Obtiene los registros crudos llamando al mismo SP, para ser procesados en el controlador.
-     * Los parámetros son obligatorios para el SP, por lo que se envían valores por defecto desde el controlador.
-     *
-     * @param array $filters Filtros de la solicitud.
-     * @return array Un array de registros.
-     * @throws Exception
-     */
     public function getRawDataForDashboard(array $filters): array
     {
         // Lógica de validación y valores por defecto idéntica a FilterNewFood
@@ -330,41 +331,45 @@ class MyLimsService
     {
         $email = strtolower($email);
 
-        // 1. Verificar si contiene 'ceimic'
         if (str_contains($email, 'ceimic')) {
             Log::info("Email con dominio 'ceimic' detectado para registro: " . $email);
-            return ['status' => 'ni', 'country_code' => null]; // Estado 'ni', código de país null
+            return ['status' => 'ni', 'country_code' => null];
         }
 
-        // 2. Si no contiene 'ceimic', consultar la DB externa
         try {
-            // Usamos la conexión 'mylims' que ya tienes configurada
+            // Preparamos el término de búsqueda en PHP para que incluya los comodines
+            $searchTerm = "%{$email}%";
+
+            // Usamos el parámetro preparado en la consulta LIKE
             $results = DB::connection('mylims')->select(
-                "SELECT top 1 E.CDPAIS
-                 FROM dbo.CONTATOSEMP CE
-                 INNER JOIN EMPRESA E ON CE.IDAUXEMPRESA = E.IDAUXEMPRESA
-                 WHERE CE.EMAIL = ? AND E.FLATIVO = 'S' AND E.FLINADIMPLENTE = 'N'",
-                [$email] // Usamos prepared statements (?) para evitar inyección SQL
+                "SELECT distinct
+                    E.CDPAIS
+                FROM PROCESSO P
+                INNER JOIN EMPRESA e ON e.CDEMPRESA = p.CDEMPRESASOL
+                INNER JOIN CONTATOSEMP CE ON CE.IDAUXEMPRESA=E.IDAUXEMPRESA
+                WHERE
+                    P.NMUDPROCESSO02 LIKE ?
+                    AND P.NMUDPROCESSO02 IS NOT NULL
+                    AND e.FLATIVO = 'S'
+                    AND e.VEREMPRESA = (SELECT MAX(EE.VEREMPRESA) FROM EMPRESA EE WHERE EE.IDAUXEMPRESA = e.IDAUXEMPRESA)
+                    AND P.VERPROCESSO= (SELECT MAX (PP.VERPROCESSO) FROM PROCESSO PP WHERE PP.NRCONTROLE1=P.NRCONTROLE1 AND PP.NRCONTROLE2=P.NRCONTROLE2)",
+                [$searchTerm] // Pasamos la variable ya preparada con los '%'
             );
 
-            if (!empty($results)) {
-                // Si se encuentra un registro activo y no moroso
-                $countryCode = trim($results[0]->CDPAIS); // Capturamos el CDPAIS y eliminamos espacios
+            if (!empty($results) && is_object($results[0])) {
+                $countryCode = trim($results[0]->CDPAIS);
                 Log::info("Email encontrado en DB externa (activo, no moroso): " . $email . " País: " . $countryCode);
-                return ['status' => 'ok', 'country_code' => $countryCode]; // Estado 'ok', devolvemos el código
+                return ['status' => 'ok', 'country_code' => $countryCode];
             } else {
-                // Si no se encuentra un registro activo y no moroso (este es el caso 'no')
                 Log::info("Email no encontrado en DB externa (o no activo/moroso): " . $email);
-                return ['status' => 'no', 'country_code' => null]; // Estado 'no', código de país null
+                return ['status' => 'no', 'country_code' => null];
             }
         } catch (\Exception $e) {
-            // Capturar errores de conexión o consulta a la DB externa
             Log::error('Error al consultar DB externa para validación de email: ' . $e->getMessage(), [
                 'email' => $email,
                 'exception' => $e
             ]);
-            // En caso de error, podrías retornar un estado de error diferente
-            return ['status' => 'error', 'message' => 'Error al validar con sistema externo.', 'country_code' => null]; // Estado de error, código de país null
+            return ['status' => 'error', 'message' => 'Error al validar con sistema externo.', 'country_code' => null];
         }
     }
     /**
@@ -483,6 +488,123 @@ class MyLimsService
         } catch (Exception $e) {
             Log::error("MyLimsService: Error en getSampleExtendedDetailsForDisplay para cdamostra {$cdamostra}: " . $e->getMessage(), ['exception' => $e]);
             throw new Exception("Error al obtener detalles extendidos de la muestra: " . $e->getMessage());
+        }
+    }
+
+    // En app/Services/MyLimsService.php
+    public function checkProcesosUserEmpresa(string $email): array
+    {
+        Log::info("MyLimsService: Verificando procesos para el usuario: " . $email);
+        try {
+            // CORRECCIÓN 1: Preparar el parámetro de búsqueda para LIKE de forma segura
+            $searchTerm = "%{$email}%";
+
+            $results = DB::connection('mylims')->select("
+            SELECT DISTINCT
+                P.CDPROCESSO
+            FROM
+                PROCESSO P WITH (NOLOCK)
+            INNER JOIN
+                EMPRESA e WITH (NOLOCK) ON e.CDEMPRESA = p.CDEMPRESASOL
+            INNER JOIN
+                CONTATOSEMP CE WITH (NOLOCK) ON CE.IDAUXEMPRESA = E.IDAUXEMPRESA
+            WHERE
+                P.NMUDPROCESSO02 LIKE ? -- Se usa el parámetro seguro
+                AND P.NMUDPROCESSO02 IS NOT NULL
+                AND e.FLATIVO = 'S'
+                AND e.VEREMPRESA = (
+                    SELECT MAX(EE.VEREMPRESA)
+                    FROM EMPRESA EE WITH (NOLOCK)
+                    WHERE EE.IDAUXEMPRESA = e.IDAUXEMPRESA
+                )
+                AND P.VERPROCESSO = (
+                    SELECT MAX(PP.VERPROCESSO)
+                    FROM PROCESSO PP WITH (NOLOCK)
+                    WHERE PP.NRCONTROLE1 = P.NRCONTROLE1 AND PP.NRCONTROLE2 = P.NRCONTROLE2
+                )
+               -- AND CE.EMAIL LIKE ? -- Se usa el parámetro seguro
+            -- CORRECCIÓN 2: Se elimina la cláusula ORDER BY que causaba el error
+        ", [$searchTerm]); // CORRECCIÓN 3: Se pasan los parámetros de forma segura
+
+            return collect($results)->map(function ($item) {
+                return (array) $item;
+            })->all();
+        } catch (Exception $e) {
+            Log::error("MyLimsService: Error al verificar procesos para el usuario {$email}: " . $e->getMessage(), ['exception' => $e]);
+            throw new Exception("Error al verificar procesos del usuario: " . $e->getMessage());
+        }
+    }
+    public function checkProcesosUser(string $email): array
+    {
+        Log::info("MyLimsService: Verificando procesos para el usuario: " . $email);
+        try {
+            // CORRECCIÓN 1: Preparar el parámetro de búsqueda para LIKE de forma segura
+            $searchTerm = "%{$email}%";
+
+            $results = DB::connection('mylims')->select("
+            SELECT DISTINCT
+                P.CDPROCESSO
+            FROM
+                PROCESSO P WITH (NOLOCK)
+            INNER JOIN
+                EMPRESA e WITH (NOLOCK) ON e.CDEMPRESA = p.CDEMPRESASOL
+            INNER JOIN
+                CONTATOSEMP CE WITH (NOLOCK) ON CE.IDAUXEMPRESA = E.IDAUXEMPRESA
+            WHERE
+                P.NMUDPROCESSO02 LIKE ? -- Se usa el parámetro seguro
+                AND P.NMUDPROCESSO02 IS NOT NULL
+                AND e.FLATIVO = 'S'
+                AND e.VEREMPRESA = (
+                    SELECT MAX(EE.VEREMPRESA)
+                    FROM EMPRESA EE WITH (NOLOCK)
+                    WHERE EE.IDAUXEMPRESA = e.IDAUXEMPRESA
+                )
+                AND P.VERPROCESSO = (
+                    SELECT MAX(PP.VERPROCESSO)
+                    FROM PROCESSO PP WITH (NOLOCK)
+                    WHERE PP.NRCONTROLE1 = P.NRCONTROLE1 AND PP.NRCONTROLE2 = P.NRCONTROLE2
+                )
+               -- AND CE.EMAIL LIKE ? -- Se usa el parámetro seguro
+            -- CORRECCIÓN 2: Se elimina la cláusula ORDER BY que causaba el error
+        ", [$searchTerm]); // CORRECCIÓN 3: Se pasan los parámetros de forma segura
+
+            return collect($results)->map(function ($item) {
+                return (array) $item;
+            })->all();
+        } catch (Exception $e) {
+            Log::error("MyLimsService: Error al verificar procesos para el usuario {$email}: " . $e->getMessage(), ['exception' => $e]);
+            throw new Exception("Error al verificar procesos del usuario: " . $e->getMessage());
+        }
+    }
+    // En app/Services/MyLimsService.php
+
+    public function ValidarProcesosActivosMax(array $listaProcesos): string
+    {
+        // Si la lista de procesos está vacía, no hacemos nada y devolvemos un string vacío.
+        if (empty($listaProcesos)) {
+            Log::info("MyLimsService: No se proporcionaron procesos para validar.");
+            return '';
+        }
+
+        Log::info("MyLimsService: Validando procesos activos para la lista: " . implode(',', $listaProcesos));
+
+        try {
+
+            $placeholders = implode(',', array_fill(0, count($listaProcesos), '?'));
+
+            // 2. Construimos la consulta usando los placeholders seguros.
+            $results = DB::connection('mylims')->select(
+                "SELECT P.CDPROCESSO
+             FROM PROCESSO P WITH (NOLOCK)
+             INNER JOIN HISTSITPROCESSO HSTP WITH (NOLOCK) ON HSTP.CDPROCESSO = P.CDPROCESSO
+             WHERE P.CDPROCESSO IN ({$placeholders})
+             AND HSTP.CDHISTORICO IN (2) -- Aprobado",
+                $listaProcesos // 3. Pasamos el array de IDs de forma segura como segundo argumento.
+            );
+            return collect($results)->pluck('CDPROCESSO')->implode(',');
+        } catch (Exception $e) {
+            Log::error("MyLimsService: Error al validar procesos activos: " . $e->getMessage(), ['exception' => $e]);
+            throw new Exception("Error al validar procesos activos: " . $e->getMessage());
         }
     }
 }

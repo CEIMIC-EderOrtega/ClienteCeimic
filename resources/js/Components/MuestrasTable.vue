@@ -109,10 +109,7 @@ const showActionButtonsDiv = computed(() => {
 
 
 async function openMrlModal() {
-    // Esta función se llama solo si `showMrlButton` es true,
-    // lo que ya garantiza que hay 1 ítem seleccionado, mrl==1 y situación permitida.
-    // El warning que tenías para >1 ya no es necesario aquí,
-    // ya que `showMrlButton` lo impide.
+
     showMrlModal.value = true;
 }
 // *** NUEVA FUNCIÓN PARA CARGAR OPCIONES MRL UNA VEZ ***
@@ -145,7 +142,53 @@ async function fetchMrlOptionsOnce() {
         isMrlLoading.value = false; // Termina la carga
     }
 }
+async function descargarInformeIndividual() {
+    // Verificamos que tengamos un registro de detalle cargado
+    if (!detailRecord.value?.cdamostra) {
+        toast.warning("No hay una muestra cargada para descargar el informe.", { position: POSITION.TOP_CENTER });
+        return;
+    }
 
+    // Comprobamos la morosidad, igual que en la función principal
+    if (detailRecord.value.moroso === 'S') {
+        toast.error(`No es posible generar el informe. La muestra registra un estado de morosidad.`, { timeout: 8000, position: POSITION.TOP_CENTER });
+        return;
+    }
+
+    isGenerating.value = true; // Activamos el loader
+    try {
+        // Llamamos al mismo endpoint, pero solo con el ID de la muestra actual
+        const idsToProcess = [detailRecord.value.cdamostra];
+
+        const resp = await axios.post(
+            route("muestras.extraerLaudos"),
+            { selected_ids: idsToProcess },
+            { timeout: 180000 }
+        );
+
+        const data = resp.data;
+        if (data.success && data.data?.length > 0) {
+            // Reutilizamos la misma lógica de descarga
+            for (const fileData of data.data) {
+                if (fileData.Laudo && fileData.NombreLaudo) {
+                    await downloadBase64File(
+                        fileData.Laudo,
+                        fileData.NombreLaudo,
+                        getMimeType(fileData.NombreLaudo)
+                    );
+                }
+            }
+            toast.success("Informe descargado exitosamente.", { position: POSITION.TOP_CENTER });
+        } else {
+            toast.error(data.message || "No se encontró el informe para esta muestra.", { position: POSITION.TOP_CENTER });
+        }
+    } catch (e) {
+        console.error("Error al generar informe individual:", e);
+        toast.error("Error al generar informe: " + (e.response?.data?.message || e.message), { position: POSITION.TOP_CENTER });
+    } finally {
+        isGenerating.value = false; // Desactivamos el loader
+    }
+}
 async function handleGenerateMrlReport() {
     // Filtra solo el cdamostra del ítem seleccionado que tiene mrl=1 y situación permitida.
     // Por la lógica de showMrlButton, aquí debería haber exactamente 1 ítem válido.
@@ -328,10 +371,10 @@ const definedColumns = ref([
     { field: "retailers", header: "Retailers" },
 ]);
 
-// --- COLUMNAS (Tabla Resultados Detalle) ---
+
 const resultsColumns = ref([
     { field: "NUMERO", header: "Número" },
-    { field: "IDAMOSTRA", header: "Id. Amostra" },
+    { field: "MATRIZ", header: "Descripción de la Muestra" },
     { field: "METODO", header: "Método" },
     { field: "PARAMETRO", header: "Parámetro" },
     { field: "RES", header: "Resultado" },
@@ -381,246 +424,6 @@ watch(
     { deep: true }
 );
 
-// --- NUEVO MÉTODO PARA EXPORTAR A EXCEL ---
-async function exportToExcel() {
-    if (
-        (!detailRecord.value || Object.keys(detailRecord.value).length === 0) &&
-        (!extendedDetailRecord.value || Object.keys(extendedDetailRecord.value).length === 0)
-    ) {
-        alert("No hay datos de detalle de muestra para exportar.");
-        return;
-    }
-
-    try {
-        let datosExcel = [];
-        let currentRow = 0; // Para llevar el control de la fila actual en datosExcel
-
-        // --- Definición de campos para los paneles Izquierdo y Derecho ---
-        const camposPanelIzquierdo = [
-            { field: "solicitante", label: "Cliente" },
-            { field: "numero_identificador", label: "Número Identificador" },
-            { field: "direccion", label: "Dirección" },
-            { field: "muestreado_por", label: "Muestreado por" },
-            { field: "descripcion_muestra", label: "Descripción de la muestra" },
-            { field: "fecha_recepcion", label: "Fecha de recepción" },
-            { field: "fecha_inicio_analisis", label: "Fecha de Inicio Análisis" },
-            { field: "fecha_termino_analisis", label: "Fecha de Término Análisis" },
-            { field: "datalaudo", label: "Fecha de Emisión" },
-        ];
-
-        const camposPanelDerecho = [
-            { field: "codigo_muestra_cliente", label: "Código Muestra Cliente" },
-            { field: "variedad", label: "Variedad" },
-            { field: "fecha_muestreo", label: "Fecha de muestreo" },
-            { field: "muestreador_persona", label: "Muestreador" },
-            { field: "lugar_muestreo_detail", label: "Lugar de Muestreo" },
-            { field: "nombre_productor", label: "Nombre Productor" },
-            { field: "codigo_productor", label: "Código de Productor" },
-            { field: "predio", label: "Predio" },
-            { field: "n_registro_agricola", label: "N° Registro Agricola" },
-            { field: "informacion_adicional", label: "Información Adicional" },
-            { field: "moroso", label: "Moroso", source: detailRecord.value }, // Estos vienen del detailRecord original
-            { field: "mrl", label: "MRL", source: detailRecord.value },
-            { field: "mercados", label: "Mercados", source: detailRecord.value },
-            { field: "retailers", label: "Retailers", source: detailRecord.value },
-        ];
-
-        // Determinar el número máximo de filas en los paneles para la disposición lado a lado
-        const maxPanelRows = Math.max(camposPanelIzquierdo.length, camposPanelDerecho.length);
-
-        // --- 1. Título General de Detalles ---
-        datosExcel.push(["Detalle de Muestra"]); // Título principal para la sección de paneles
-        const mainTitleRowIndex = currentRow;
-        currentRow++;
-
-        datosExcel.push([]); // Fila vacía para espacio
-        currentRow++;
-
-        // --- 2. Contenido de los Paneles Izquierdo y Derecho Lado a Lado ---
-        // Definir el número de columnas para esta sección (Etiqueta Izq, Valor Izq, Etiqueta Der, Valor Der)
-        const panelSectionColumnCount = 4; // Col A, B, C, D
-        const panelSectionStartRow = currentRow; // Guarda la fila de inicio para la aplicación de estilos
-
-        for (let i = 0; i < maxPanelRows; i++) {
-            const row = [];
-            // Columna 0 (Etiqueta Izquierda)
-            const leftLabel = camposPanelIzquierdo[i]?.label ? camposPanelIzquierdo[i].label + ":" : "";
-            row.push(leftLabel);
-
-            // Columna 1 (Valor Izquierda)
-            let leftValue = "";
-            if (camposPanelIzquierdo[i]) {
-                leftValue = extendedDetailRecord.value[camposPanelIzquierdo[i].field] ?? detailRecord.value[camposPanelIzquierdo[i].field] ?? 'S/INF';
-                if (leftValue === "" || leftValue === "N/A") leftValue = "S/INF";
-            }
-            row.push(leftValue);
-
-            // Columna 2 (Etiqueta Derecha)
-            const rightLabel = camposPanelDerecho[i]?.label ? camposPanelDerecho[i].label + ":" : "";
-            row.push(rightLabel);
-
-            // Columna 3 (Valor Derecha)
-            let rightValue = "";
-            if (camposPanelDerecho[i]) {
-                const source = camposPanelDerecho[i].source || extendedDetailRecord.value; // Usa source si está definido
-                rightValue = source[camposPanelDerecho[i].field] ?? detailRecord.value[camposPanelDerecho[i].field] ?? 'S/INF';
-                if (rightValue === "" || rightValue === "N/A") rightValue = "S/INF";
-            }
-            row.push(rightValue);
-            datosExcel.push(row);
-            currentRow++;
-        }
-
-        datosExcel.push([]); // Fila vacía como espaciador
-        currentRow++;
-
-        // --- 3. Título "Resultados del Análisis" ---
-        datosExcel.push(["Resultados del Análisis"]);
-        const resultadosTitleRowIndex = currentRow;
-        currentRow++;
-
-        // --- 4. Cabeceras y Filas de Resultados del Análisis ---
-        if (sampleResults.value.length > 0) {
-            const cabecerasResultados = resultsColumns.value.map((col) => col.header);
-            datosExcel.push(cabecerasResultados);
-            const resultadosTableHeaderRowIndex = currentRow; // Guarda la fila de cabeceras de resultados
-            currentRow++;
-
-            sampleResults.value.forEach((fila) => {
-                const filaData = resultsColumns.value.map((col) => fila[col.field] ?? "S/INF");
-                datosExcel.push(filaData);
-                currentRow++;
-            });
-        } else {
-            datosExcel.push(["No se encontraron resultados de análisis."]);
-            currentRow++;
-        }
-
-        const ws = XLSX.utils.aoa_to_sheet(datosExcel);
-        const sheetMerges = [];
-
-        // --- Aplicar Estilos y Merges ---
-
-        // Estilos para la sección de paneles
-        const numColsDetails = panelSectionColumnCount; // 4 columnas para los paneles (A:D)
-
-        // Título "Detalle de Muestra"
-        if (ws[XLSX.utils.encode_cell({ r: mainTitleRowIndex, c: 0 })]) {
-            ws[XLSX.utils.encode_cell({ r: mainTitleRowIndex, c: 0 })].s = excelStyles.titleSection;
-            sheetMerges.push({ s: { r: mainTitleRowIndex, c: 0 }, e: { r: mainTitleRowIndex, c: numColsDetails - 1 } });
-        }
-
-        // Estilos para los pares Etiqueta-Valor de los paneles (lados izquierdo y derecho)
-        for (let r = panelSectionStartRow; r < panelSectionStartRow + maxPanelRows; r++) {
-            // Columna de etiquetas izquierdas (A)
-            const labelLeftAddr = XLSX.utils.encode_cell({ r: r, c: 0 });
-            if (ws[labelLeftAddr]) ws[labelLeftAddr].s = excelStyles.sampleInfoLabel;
-
-            // Columna de valores izquierdos (B)
-            const valueLeftAddr = XLSX.utils.encode_cell({ r: r, c: 1 });
-            if (ws[valueLeftAddr]) ws[valueLeftAddr].s = excelStyles.sampleInfoValue;
-
-            // Columna de etiquetas derechas (C)
-            const labelRightAddr = XLSX.utils.encode_cell({ r: r, c: 2 });
-            if (ws[labelRightAddr]) ws[labelRightAddr].s = excelStyles.sampleInfoLabel;
-
-            // Columna de valores derechos (D)
-            const valueRightAddr = XLSX.utils.encode_cell({ r: r, c: 3 });
-            if (ws[valueRightAddr]) ws[valueRightAddr].s = excelStyles.sampleInfoValue;
-        }
-
-        // Título "Resultados del Análisis"
-        const numColsResultados = resultsColumns.value.length > 0 ? resultsColumns.value.length : 1;
-        if (ws[XLSX.utils.encode_cell({ r: resultadosTitleRowIndex, c: 0 })]) {
-            ws[XLSX.utils.encode_cell({ r: resultadosTitleRowIndex, c: 0 })].s = excelStyles.titleSection;
-            // El merge para el título de resultados debe ser al número de columnas de resultados, no de paneles
-            sheetMerges.push({ s: { r: resultadosTitleRowIndex, c: 0 }, e: { r: resultadosTitleRowIndex, c: numColsResultados - 1 } });
-        }
-
-        // Cabeceras de la Tabla de Resultados
-        if (sampleResults.value.length > 0) {
-            const currentHeaderRow = resultadosTitleRowIndex + 1;
-            for (let c = 0; c < resultsColumns.value.length; c++) {
-                const cellAddr = XLSX.utils.encode_cell({ r: currentHeaderRow, c: c });
-                if (ws[cellAddr]) ws[cellAddr].s = excelStyles.resultsTableHeader;
-            }
-        }
-
-        // Celdas de Datos de la Tabla de Resultados (con efecto cebra)
-        if (sampleResults.value.length > 0) {
-            let isEvenRow = false;
-            let currentDataRow = resultadosTitleRowIndex + 2; // Inicia después del título y las cabeceras
-            for (let r = 0; r < sampleResults.value.length; r++) {
-                const rowExcelIndex = currentDataRow + r;
-                const currentStyle = isEvenRow ? excelStyles.resultsTableCellAlt : excelStyles.resultsTableCell;
-                for (let c = 0; c < resultsColumns.value.length; c++) {
-                    const cellAddr = XLSX.utils.encode_cell({ r: rowExcelIndex, c: c });
-                    if (ws[cellAddr]) {
-                        ws[cellAddr].s = currentStyle;
-                        // Ya se maneja S/INF al construir los datos, solo asegurar el tipo
-                        ws[cellAddr].t = (typeof sampleResults.value[r][resultsColumns.value[c].field] === "number") ? "n" : "s";
-                    }
-                }
-                isEvenRow = !isEvenRow;
-            }
-        } else {
-            // Si no hay resultados, aplicar estilo al mensaje "No se encontraron resultados..."
-            const messageRowIndex = resultadosTitleRowIndex + 1; // Fila justo debajo del título de resultados
-            const cellAddr = XLSX.utils.encode_cell({ r: messageRowIndex, c: 0 });
-            if (ws[cellAddr]) {
-                ws[cellAddr].s = excelStyles.resultsTableCell; // Estilo básico para el mensaje
-                sheetMerges.push({ s: { r: messageRowIndex, c: 0 }, e: { r: messageRowIndex, c: numColsResultados - 1 } });
-            }
-        }
-
-        ws["!merges"] = sheetMerges;
-
-        // Ajustar anchos de columna dinámicamente
-        const anchosColumnas = [];
-        // Primero para las columnas de detalles (A, B, C, D)
-        for (let i = 0; i < panelSectionColumnCount; i++) {
-            let maxAncho = 0;
-            for (let r = panelSectionStartRow; r < panelSectionStartRow + maxPanelRows; r++) {
-                const cellValue = datosExcel[r] && datosExcel[r][i] !== undefined ? String(datosExcel[r][i]) : "";
-                if (cellValue.length > maxAncho) {
-                    maxAncho = cellValue.length;
-                }
-            }
-            if (i % 2 === 0) { // Columnas de etiquetas (A, C)
-                anchosColumnas.push({ wch: Math.max(20, Math.min(maxAncho + 2, 40)) });
-            } else { // Columnas de valores (B, D)
-                anchosColumnas.push({ wch: Math.max(30, Math.min(maxAncho + 2, 80)) });
-            }
-        }
-
-        // Luego para las columnas de resultados (si las hay, empezando después de las de detalle)
-        if (sampleResults.value.length > 0) {
-            for (let i = 0; i < resultsColumns.value.length; i++) {
-                let maxAncho = 0;
-                // Considerar cabeceras y filas de datos
-                const headerValue = String(resultsColumns.value[i].header);
-                if (headerValue.length > maxAncho) maxAncho = headerValue.length;
-
-                sampleResults.value.forEach(item => {
-                    const cellValue = item[resultsColumns.value[i].field] !== undefined ? String(item[resultsColumns.value[i].field]) : "S/INF";
-                    if (cellValue.length > maxAncho) maxAncho = cellValue.length;
-                });
-                anchosColumnas.push({ wch: Math.max(12, Math.min(maxAncho + 2, 60)) });
-            }
-        }
-        ws["!cols"] = anchosColumnas;
-
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Detalle Muestra");
-        const nombreArchivo = `Resultados_Muestra_${detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
-            }.xlsx`;
-        XLSX.writeFile(wb, nombreArchivo);
-    } catch (error) {
-        console.error("Error al exportar a Excel con estilos:", error);
-        alert("Se produjo un error al generar el archivo Excel estilizado. Revise la consola.");
-    }
-}
 
 // --- LÓGICA VISIBILIDAD COLUMNAS (Tabla Principal) ---
 function initializeColumnVisibility() {
@@ -1470,19 +1273,29 @@ function getRowClass(item) {
                         </div>
                     </div>
                     <div class="mt-4 pt-4 border-t">
-                        <h3 class="text-base font-semibold mb-2 pb-1.5 flex items-center gap-1.5 text-gray-700">
-                            <TableCellsIcon class="w-4 h-4" /> Resultados del
-                            Análisis
+                        <h3 class="text-base font-semibold mb-3 pb-1.5 flex items-center gap-1.5 text-gray-700">
+                            <TableCellsIcon class="w-4 h-4" /> Resultados del Análisis
                         </h3>
 
-                        <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
-                            @click="handleExportBackend" title="Exportar detalle y resultados a Excel"
-                            class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
-                            :disabled="isGenerating">
-                            <ArrowDownTrayIcon class="w-4 h-4 mr-1.5" />
-                            Exportar Excel
-                        </button>
+                        <div class="flex items-center space-x-3 mb-4">
 
+                            <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
+                                @click="handleExportBackend" title="Exportar detalle y resultados a Excel"
+                                class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
+                                :disabled="isGenerating">
+                                <ArrowDownTrayIcon class="w-4 h-4 mr-1.5" />
+                                Exportar Excel
+                            </button>
+
+                            <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
+                                @click="descargarInformeIndividual" title="Descargar Informe PDF de esta muestra"
+                                class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center"
+                                :disabled="isGenerating">
+                                <DocumentTextIcon class="w-4 h-4 mr-1.5" />
+                                Descargar Informe
+                            </button>
+
+                        </div>
                         <div v-if="isLoadingResults"
                             class="text-center p-5 text-blue-600 flex items-center justify-center gap-2 bg-blue-50 rounded border">
                             <svg class="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
@@ -1494,9 +1307,11 @@ function getRowClass(item) {
                             </svg>
                             Cargando resultados...
                         </div>
+
                         <div v-else-if="resultsError" class="p-4 text-red-700 bg-red-50 border border-red-200 rounded">
                             <p>{{ resultsError }}</p>
                         </div>
+
                         <div v-else-if="sampleResults.length > 0"
                             class="overflow-x-auto border rounded max-h-[45vh] scrollable-area">
                             <table class="min-w-full border-collapse compact-datatable">
@@ -1509,11 +1324,8 @@ function getRowClass(item) {
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y">
-                                    <tr v-for="(result, index) in sampleResults" :key="'res-d-' +
-                                        index +
-                                        '-' +
-                                        result.NUMERO
-                                        " class="hover:bg-blue-50/50">
+                                    <tr v-for="(result, index) in sampleResults"
+                                        :key="'res-d-' + index + '-' + result.NUMERO" class="hover:bg-blue-50/50">
                                         <td v-for="col in resultsColumns" :key="'res-c-' + col.field"
                                             class="p-2 text-start text-xs text-gray-700">
                                             {{ result[col.field] ?? "-" }}
@@ -1522,9 +1334,9 @@ function getRowClass(item) {
                                 </tbody>
                             </table>
                         </div>
-                        <div v-else-if="
-                            !resultsError && sampleResults.length === 0
-                        " class="text-center p-4 text-gray-500 bg-gray-50 border rounded">
+
+                        <div v-else-if="!resultsError && sampleResults.length === 0"
+                            class="text-center p-4 text-gray-500 bg-gray-50 border rounded">
                             No hay resultados de análisis disponibles.
                         </div>
                     </div>

@@ -62,10 +62,9 @@ const validateEmail = () => {
     // Llamada axios a la ruta de validación en web.php
     axios.post(route('register.checkEmail'), { email: form.email })
         .then(response => {
-            validationResult.value = response.data; // Guarda la respuesta { status: ..., country_code?: ... }
+            validationResult.value = response.data;
 
-            // !!! CAMBIO CLAVE AQUÍ !!!
-            // AVANZAMOS al paso 2 (emailValidatedStep1 = true) SOLO si el status es 'ok'
+
             if (response.data.status === 'ok') {
                 emailValidatedStep1.value = true;
 
@@ -79,23 +78,13 @@ const validateEmail = () => {
                         console.log('País preseleccionado:', country.name); // Log para depuración
                     } else {
                         console.warn('Código de país externo no encontrado en lista local:', response.data.country_code);
-                        // Opcional: mostrar un mensaje al usuario si el código no coincide
-                        // form.setError('country_id', 'El código de país no coincide con nuestra lista.');
+
                     }
                 } else {
                     console.warn('Validación OK, pero no se recibió country_code.');
-                    // Opcional: Asegurar que el select esté en la opción por defecto "Seleccione un país"
                     form.country_id = '';
                 }
-                // *** Fin lógica preselección país ***
 
-                // Opcional: Scroll al paso 2 (si tienes el id="step2-fields")
-                // nextTick(() => {
-                //    const step2Fields = document.getElementById('step2-fields');
-                //    if (step2Fields) {
-                //        step2Fields.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                //    }
-                // });
 
 
             } else {
@@ -128,14 +117,6 @@ const submitRegistration = () => {
         alert("Error interno: El estado de validación del correo no es correcto para registrarse.");
         return;
     }
-
-    // Antes de enviar, puedes opcionalmente verificar que los campos requeridos del paso 2 no estén vacíos en el frontend
-    // aunque el backend ya los validará.
-    // if (!form.name || !form.password || !form.password_confirmation || !form.country_id) {
-    //     alert("Por favor, completa todos los campos obligatorios.");
-    //      // Aquí podrías marcar los errores manualmente en form.errors si quieres
-    //     return;
-    // }
 
 
     // Usamos form.post de Inertia para enviar todos los datos a la ruta de registro (POST /register)
@@ -281,22 +262,23 @@ const handleMainSubmit = () => {
                         <InputError class="mt-2" :message="form.errors.country_id" />
                         <p v-if="validationResult?.status === 'ok' && validationResult?.country_code"
                             class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Código externo encontrado: {{ validationResult.country_code }}
+                            <!--Código externo encontrado: {{ validationResult.country_code }}-->
                         </p>
                     </div>
 
                     <div class="mt-6 flex items-center justify-end">
-                        <Link v-if="canLogin" :href="route('login')"
-                            class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-zinc-900">
-                        ¿Ya tienes cuenta?
-                        </Link>
 
-                        <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }"
-                            :disabled="form.processing">
+
+
+
+                    </div>
+                    <div class="mt-4">
+                        <PrimaryButton class="inline-flex items-center justify-center w-full "
+                            :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
                             Registrar
                         </PrimaryButton>
-                    </div>
 
+                    </div>
                 </div>
                 <div class="mt-4">
                     <Link :href="route('login')"
