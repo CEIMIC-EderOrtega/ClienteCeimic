@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Services\MyLimsService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Response; // Importa la clase Response
+use Illuminate\Http\JsonResponse; // Importa la clase JsonResponse
 
 class PrincipalDashboardController extends Controller
 {
@@ -19,36 +20,49 @@ class PrincipalDashboardController extends Controller
         $this->myLimsService = $myLimsService;
     }
 
-    public function index(Request $request)
+    /**
+     * Muestra el "cascarón" o la estructura inicial del dashboard.
+     * Es muy rápido porque no carga datos pesados.
+     */
+    public function index(): Response
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Devuelve la vista con datos iniciales mínimos
+        return Inertia::render('Admin/Principal/Dashboard', [
+            'initialMasterData' => [], // Se envía un array vacío inicialmente
+            'currentFilters' => [
+                'desde' => Carbon::now()->subDays(15)->format('Y-m-d'),
+                'hasta' => Carbon::now()->format('Y-m-d')
+            ],
+            'isAdmin' => $user ? $user->hasRole('Administrador') : false
+        ]);
+    }
+
+    /**
+     * Obtiene los datos del dashboard de forma asíncrona.
+     * Esta es la petición que hará el componente de Vue una vez montado.
+     */
+    public function fetchData(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
             /** @var \App\Models\User $user */
-            if (!$user) {
-                return redirect()->route('login');
-            }
-
             $isAdmin = $user->hasRole('Administrador');
 
-            // Validar y establecer el rango de fechas
             $filters = $request->validate([
-                'desde' => 'nullable|date_format:Y-m-d',
-                'hasta' => 'nullable|date_format:Y-m-d',
+                'desde' => 'required|date_format:Y-m-d',
+                'hasta' => 'required|date_format:Y-m-d',
             ]);
-            
-            // ====================================================================
-            // === CAMBIO CLAVE: El rango por defecto ahora es de 15 días atrás ===
-            // ====================================================================
-            $desde = Carbon::parse($filters['desde'] ?? Carbon::now()->subDays(15))->startOfDay();
-            $hasta = Carbon::parse($filters['hasta'] ?? Carbon::now())->endOfDay();
-            
+            $desde = Carbon::parse($filters['desde'])->startOfDay();
+            $hasta = Carbon::parse($filters['hasta'])->endOfDay();
+
             $registros = [];
 
             if ($isAdmin) {
-                Log::info('Usuario es Administrador. Obteniendo datos de dashboard para admin.');
                 $registros = $this->myLimsService->getDashboardDataForAdmin($desde, $hasta);
             } else {
-                Log::info('Usuario no es Administrador. Validando procesos.');
                 $procesosIniciales = $this->myLimsService->checkProcesosUserEmpresa($user->email);
                 $listaDeIds = collect($procesosIniciales)->pluck('CDPROCESSO')->all();
                 $procesosActivosString = $this->myLimsService->ValidarProcesosActivosMax($listaDeIds);
@@ -58,28 +72,11 @@ class PrincipalDashboardController extends Controller
                 }
             }
 
-            return Inertia::render('Admin/Principal/Dashboard', [
-                'masterData' => $registros,
-                'currentFilters' => [
-                    'desde' => $desde->format('Y-m-d'),
-                    'hasta' => $hasta->format('Y-m-d')
-                ],
-                'isAdmin' => $isAdmin
-            ]);
+            return response()->json(['masterData' => $registros]);
 
         } catch (\Exception $e) {
-            Log::error('Error en PrincipalDashboardController: ' . $e->getMessage(), ['exception' => $e]);
-
-            $user = Auth::user();
-            /** @var \App\Models\User|null $user */
-            $isAdmin = $user ? $user->hasRole('Administrador') : false;
-
-            return Inertia::render('Admin/Principal/Dashboard', [
-                'masterData' => [],
-                'currentFilters' => $request->all(),
-                'isAdmin' => $isAdmin,
-                'error' => 'No se pudo cargar la información del dashboard: ' . $e->getMessage()
-            ]);
+            Log::error('Error en PrincipalDashboardController::fetchData: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['error' => 'No se pudo cargar la información del dashboard.'], 500);
         }
     }
 }

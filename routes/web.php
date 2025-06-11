@@ -47,7 +47,8 @@ Route::middleware('auth')->group(function () {
 
     // === NUEVA RUTA PARA EL DASHBOARD PRINCIPAL ===
     // CÓDIGO CORREGIDO
-Route::match(['get', 'post'], '/principal-dashboard', [PrincipalDashboardController::class, 'index'])->name('principal.dashboard');
+    Route::match(['get', 'post'], '/principal-dashboard', [PrincipalDashboardController::class, 'index'])->name('principal.dashboard');
+    Route::post('/principal-dashboard/data', [PrincipalDashboardController::class, 'fetchData'])->name('principal.dashboard.data');
 });
 
 // --- CAMBIO CLAVE AQUÍ: Aplicar el middleware 'role:Administrador' ---
