@@ -144,6 +144,90 @@ class MyLimsService
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
+       public function FilterNewFoodAdmin( array $filters): array
+    {
+
+
+        $status_id_string = Arr::get($filters, 'status', '4');
+
+        $valid_status_ids = ['2', '10', '3', '4'];
+        if (!in_array($status_id_string, $valid_status_ids)) {
+            $status_id_string = '4'; // Si no es válido, usar '4' (Publicado) como defecto seguro.
+        }
+
+        $status_param_for_sp = (int) $status_id_string;
+
+        $today = Carbon::today();
+        $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
+        $defaultHasta = $today->format('Y-m-d');
+        $desde = Carbon::parse(Arr::get($filters, 'desde', $defaultDesde))->startOfDay();
+        $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
+        $grupo = Arr::get($filters, 'search_grupo');
+        $processo = Arr::get($filters, 'search_processo');
+        $numero = Arr::get($filters, 'search_numero');
+        $idamostra = Arr::get($filters, 'search_idamostra');
+        $solicitante = Arr::get($filters, 'search_solicitante');
+        $tipo = Arr::get($filters, 'search_tipo');
+        $cdamostra = Arr::get($filters, 'search_cdamostra');
+
+        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 con parámetros:', [
+            'Sit_INT_param' => $status_param_for_sp,
+            'Solicitante' => $solicitante,
+            'Grupo' => $grupo,
+            'Tipo' => $tipo,
+            'Cdamostra' => $cdamostra,
+            'Idamostra' => $idamostra,
+            'Processo' => $processo,
+            'Numero' => $numero,
+            'Desde' => $desde->toDateTimeString(),
+            'Hasta' => $hasta->toDateTimeString()
+        ]);
+
+        try {
+            // ==============================================================================
+            // === PASO 4: LLAMADA AL SP (MODIFICADA PARA AÑADIR EL PARÁMETRO) ===
+            // ==============================================================================
+
+            $results = DB::connection('mylims')->select(
+                // 4.1: Añadimos @ProcesosCSV = ? al final de la llamada
+                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?',
+                [
+                    // 4.2: Añadimos la variable $procesosActivosString al final del array de parámetros
+                    $status_param_for_sp,
+                    $solicitante,
+                    $grupo,
+                    $tipo,
+                    $cdamostra,
+                    $idamostra,
+                    $processo,
+                    $numero,
+                    $desde,
+                    $hasta
+                ]
+            );
+
+            // El resto de la función se mantiene igual...
+            if (isset($results[0]) && property_exists($results[0], 'GeneratedQueryForDebug')) {
+                $generatedSql = $results[0]->GeneratedQueryForDebug;
+                Log::debug('SQL Generado por el SP: ' . $generatedSql);
+            }
+
+            $mrlReportEnabled = Config::get('features.mrl_report_enabled');
+
+            return collect($results)->map(function ($item) use ($mrlReportEnabled) {
+                $itemArray = (array) $item;
+                $itemArray['mrl_report_enabled_global'] = $mrlReportEnabled;
+                return $itemArray;
+            })->all();
+        } catch (Exception $e) {
+            // La captura de errores se mantiene igual
+            Log::error("Error en MyLimsService::CLink_obtenerRegistrosFoodFiltrados1", [
+                'input_filters' => $filters,
+                'exception_message' => $e->getMessage()
+            ]);
+            throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
+        }
+    }
     /**
      * Obtiene los datos para el nuevo dashboard principal usando el SP simplificado.
      *
@@ -173,7 +257,36 @@ class MyLimsService
             throw new Exception("Error al obtener datos para el dashboard: " . $e->getMessage());
         }
     }
+/**
+     * Obtiene los datos para el dashboard principal para un Administrador.
+     * Llama a un SP que no requiere validación de procesos.
+     *
+     * @param Carbon $desde Fecha de inicio.
+     * @param Carbon $hasta Fecha de fin.
+     * @return array
+     */
+    public function getDashboardDataForAdmin(Carbon $desde, Carbon $hasta): array
+    {
+        Log::info('Ejecutando getDashboardDataForAdmin para el rango de fechas.', [
+            'desde' => $desde->toDateTimeString(),
+            'hasta' => $hasta->toDateTimeString(),
+        ]);
 
+        try {
+            $results = DB::connection('mylims')->select(
+                // Llamada al nuevo SP de Admin
+                'EXEC dbo.CLink_obtenerRegistrosFoodDashboard_Admin @Desde = ?, @Hasta = ?',
+                [$desde, $hasta]
+            );
+
+            return collect($results)->map(fn($item) => (array) $item)->all();
+        } catch (Exception $e) {
+            Log::error("Error en MyLimsService::getDashboardDataForAdmin", [
+                'exception_message' => $e->getMessage()
+            ]);
+            throw new Exception("Error al obtener datos de admin para el dashboard: " . $e->getMessage());
+        }
+    }
 
     public function extraerMultiplesLaudos(string $email, array $selectedIds): array
     {

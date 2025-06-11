@@ -22,6 +22,12 @@ class GetMuestrasController extends Controller
 
     public function index(Request $request)
     {
+        // 1. Obtenemos el usuario autenticado
+        $user = Auth::user();
+        /** @var \App\Models\User $user */
+        // 2. Verificamos si el usuario es Administrador
+        $isAdmin = $user->hasRole('Administrador');
+
         $email = Auth::user()->email;
         $unit = 'Food'; // Unidad fija
         $filters = $request->except('unit'); // Obtener todos los filtros excepto 'unit'
@@ -35,7 +41,18 @@ class GetMuestrasController extends Controller
         if ($request->isMethod('post')) {
             try {
                 // Aquí usamos los filtros recibidos del POST
-                $registros = $this->myLimsService->FilterNewFood($email, $filters);
+                // === 3. LÓGICA CONDICIONAL BASADA EN EL ROL ===
+                if ($isAdmin) {
+                    // Si es Admin, llamamos a la función sin restricciones de email/proceso
+                    Log::info('GetMuestrasController: Usuario es Admin. Usando FilterNewFoodAdmin.');
+                    $registros = $this->myLimsService->FilterNewFoodAdmin($filters);
+                } else {
+                    // Si es un usuario normal (Cliente), usamos la función original que valida sus procesos
+                    Log::info('GetMuestrasController: Usuario NO es Admin. Usando FilterNewFood.');
+                    $registros = $this->myLimsService->FilterNewFood($user->email, $filters);
+                }
+                // ===============================================
+
                 Log::info("Registros Food obtenidos por POST:", ['count' => count($registros)]);
             } catch (Exception $e) {
                 Log::error("Error al cargar muestras en GetMuestrasController (Forzado Food) en POST request: " . $e->getMessage(), ['exception' => $e]);
@@ -55,7 +72,8 @@ class GetMuestrasController extends Controller
             'filters' => $initialFilters,
             'selectedUnit' => $unit,
             'error' => $error,
-            'mrlReportEnabled' => $mrlReportEnabled
+            'mrlReportEnabled' => $mrlReportEnabled,
+            'isAdmin' => $isAdmin, // <-- PASAR EL FLAG A LA VISTA
         ]);
     }
 

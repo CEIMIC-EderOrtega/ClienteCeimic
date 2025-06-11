@@ -353,18 +353,20 @@ const columnFilters = ref({});
 // --- COLUMNAS (Tabla Principal) ---
 const definedColumns = ref([
     { field: "Grupo", header: "Grupo" },
-    { field: "Processo", header: "Processo" },
-    { field: "Numero", header: "Numero" },
-    { field: "Id. Amostra", header: "Id. Amostra" },
-    { field: "Tipo Amostra", header: "Tipo Amostra" },
-    { field: "cdamostra", header: "cdamostra" },
+
+    { field: "Processo", header: "Proceso" },
+    { field: "Numero", header: "N° Informe" },
+   //{ field: "Id. Amostra", header: "Id. Amostra" },
+    { field: "MATRIZ", header: "Especie" },
+   // { field: "Tipo Amostra", header: "Tipo Amostra" },
+    { field: "cdamostra", header: "Código Lab." },
     { field: "Solicitante", header: "Solicitante" },
-    { field: "Coleta", header: "Coleta" },
-    { field: "Recepcao", header: "Recepcao" },
-    { field: "Previsao", header: "Previsao" },
-    { field: "Situacao", header: "Situacao" },
-    { field: "Data_Situacao", header: "Data_Situacao" },
-    { field: "cdunidade", header: "cdunidade" },
+    { field: "Coleta", header: "Fecha Muestreo" },
+    { field: "Recepcao", header: "Fecha Recepción" },
+    { field: "Previsao", header: "Fecha Prevista/Entrega" },
+    { field: "Situacao", header: "Situación" },
+    { field: "Data_Situacao", header: "Fecha Situación" },
+    //{ field: "cdunidade", header: "cdunidade" },
     //{ field: "moroso", header: "Moroso" },
     { field: "mrl", header: "MRL" },
     { field: "mercados", header: "Mercados" },
@@ -428,7 +430,7 @@ watch(
 // --- LÓGICA VISIBILIDAD COLUMNAS (Tabla Principal) ---
 function initializeColumnVisibility() {
     const defaultHiddenColumns = new Set([
-        "cdamostra",
+        //"cdamostra",
         "cdunidade",
         "moroso",
         "mrl",
