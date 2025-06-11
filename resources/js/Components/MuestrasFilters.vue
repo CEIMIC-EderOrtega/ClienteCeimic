@@ -106,7 +106,7 @@ const localFilters = reactive({
 const setDefaultDates = () => {
     const today = new Date();
     const pastDate = new Date(today);
-    pastDate.setDate(today.getDate() - 30);
+    pastDate.setDate(today.getDate() - 14);//aqui colocammos la cantidad de dias predeterminadoo para cargar
     const formatDate = (date) => date.toISOString().split("T")[0];
     localFilters.desde = formatDate(pastDate);
     localFilters.hasta = formatDate(today);

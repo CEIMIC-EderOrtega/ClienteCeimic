@@ -144,8 +144,29 @@ class MyLimsService
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
-    public function getRawDataForDashboard(array $filters): array
+    public function getRawDataForDashboard(array $filters,string $email): array
     {
+        // ==============================================================================
+        // === PASO 1: LÓGICA DE VALIDACIÓN DE PROCESOS (Como la pediste) ===
+        // ==============================================================================
+
+        // 1. Llamamos a la función que busca los procesos del usuario
+        $procesosIniciales = $this->checkProcesosUserEmpresa($email);
+
+        // 2. Transformamos el resultado a un array plano de IDs.
+        $listaDeIds = collect($procesosIniciales)->pluck('CDPROCESSO')->all();
+
+        // 3. Validamos cuáles de esos procesos están realmente activos
+        $procesosActivosString = $this->ValidarProcesosActivosMax($listaDeIds);
+
+        // ==============================================================================
+        // === PASO 2: VERIFICACIÓN Y MANEJO DE ERROR (Lógica de negocio) ===
+        // ==============================================================================
+
+        // Si la lista de procesos activos está vacía, detenemos todo y lanzamos un error.
+        if (empty($procesosActivosString)) {
+            throw new Exception("No hay procesos asignados a su perfil, contactarse con su asesor comercial.");
+        }
         // Lógica de validación y valores por defecto idéntica a FilterNewFood
         $status_id_string = Arr::get($filters, 'status', '4');
         $valid_status_ids = ['2', '10', '3', '4'];
@@ -177,12 +198,13 @@ class MyLimsService
             'Tipo' => $tipo,
             'Desde' => $desde->toDateTimeString(),
             'Hasta' => $hasta->toDateTimeString(),
+            'ProcesosCSV' => $procesosActivosString // Logueamos el nuevo parámetro
         ]);
 
         try {
             $results = DB::connection('mylims')->select(
                 // El SP espera todos los parámetros. Pasamos null a los que no usamos.
-                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?',
+                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?, @ProcesosCSV = ?',
                 [
                     $status_param_for_sp,
                     $solicitante,
@@ -193,7 +215,8 @@ class MyLimsService
                     $processo,
                     $numero,
                     $desde,
-                    $hasta
+                    $hasta,
+                    $procesosActivosString // <--- NUEVO PARÁMETRO
                 ]
             );
 

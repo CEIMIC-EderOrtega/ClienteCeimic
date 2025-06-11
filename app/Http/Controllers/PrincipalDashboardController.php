@@ -23,7 +23,7 @@ class PrincipalDashboardController extends Controller
     {
         try {
             $user = Auth::user();
-
+            $email = Auth::user()->email;
 
             /** @var \App\Models\User $user */
 
@@ -65,7 +65,7 @@ class PrincipalDashboardController extends Controller
                 'search_solicitante' => $solicitanteParaSP,
                 'search_tipo' => $filters['search_tipo'] ?? null,
             ];
-            $registros = $this->myLimsService->getRawDataForDashboard($filtersParaSP);
+            $registros = $this->myLimsService->getRawDataForDashboard($filtersParaSP,$email );
             $collection = collect($registros);
 
             // 4. GENERAR OPCIONES PARA LOS FILTROS
@@ -77,8 +77,8 @@ class PrincipalDashboardController extends Controller
             $tiposAmostraOptions = $collection->pluck('Tipo Amostra')->filter()->unique()->sort()->values()->all();
 
             // 5. PROCESAR DATOS PARA GRÁFICOS
-            $barChartData = $collection->groupBy('Situacao')->map(fn ($g) => $g->count());
-            $pieChartData = $collection->groupBy('Tipo Amostra')->map(fn ($g) => $g->count());
+            $barChartData = $collection->groupBy('Situacao')->map(fn($g) => $g->count());
+            $pieChartData = $collection->groupBy('Tipo Amostra')->map(fn($g) => $g->count());
 
             // 6. RENDERIZAR VISTA
             return Inertia::render('Admin/Principal/Dashboard', [
@@ -90,7 +90,6 @@ class PrincipalDashboardController extends Controller
                 'currentFilters' => $filters,
                 'isAdmin' => $isAdmin,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error en PrincipalDashboardController: ' . $e->getMessage(), ['exception' => $e]);
             return back()->with('error', 'No se pudo cargar la información del dashboard.');
