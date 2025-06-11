@@ -144,88 +144,33 @@ class MyLimsService
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
-    public function getRawDataForDashboard(array $filters,string $email): array
+    /**
+     * Obtiene los datos para el nuevo dashboard principal usando el SP simplificado.
+     *
+     * @param string $procesosActivosString String con los IDs de procesos activos separados por comas.
+     * @param Carbon $desde Fecha de inicio.
+     * @param Carbon $hasta Fecha de fin.
+     * @return array
+     */
+    public function getDashboardData(string $procesosActivosString, Carbon $desde, Carbon $hasta): array
     {
-        // ==============================================================================
-        // === PASO 1: LÓGICA DE VALIDACIÓN DE PROCESOS (Como la pediste) ===
-        // ==============================================================================
-
-        // 1. Llamamos a la función que busca los procesos del usuario
-        $procesosIniciales = $this->checkProcesosUserEmpresa($email);
-
-        // 2. Transformamos el resultado a un array plano de IDs.
-        $listaDeIds = collect($procesosIniciales)->pluck('CDPROCESSO')->all();
-
-        // 3. Validamos cuáles de esos procesos están realmente activos
-        $procesosActivosString = $this->ValidarProcesosActivosMax($listaDeIds);
-
-        // ==============================================================================
-        // === PASO 2: VERIFICACIÓN Y MANEJO DE ERROR (Lógica de negocio) ===
-        // ==============================================================================
-
-        // Si la lista de procesos activos está vacía, detenemos todo y lanzamos un error.
+        // Verificación de seguridad: si no hay procesos, no hay nada que buscar.
         if (empty($procesosActivosString)) {
-            throw new Exception("No hay procesos asignados a su perfil, contactarse con su asesor comercial.");
+            return [];
         }
-        // Lógica de validación y valores por defecto idéntica a FilterNewFood
-        $status_id_string = Arr::get($filters, 'status', '4');
-        $valid_status_ids = ['2', '10', '3', '4'];
-        if (!in_array($status_id_string, $valid_status_ids)) {
-            $status_id_string = '4';
-        }
-        $status_param_for_sp = (int) $status_id_string;
-
-        $today = Carbon::today();
-        $defaultDesde = $today->copy()->subMonth()->format('Y-m-d');
-        $defaultHasta = $today->format('Y-m-d');
-
-        // Los filtros que usará el SP. Vienen del controlador.
-        $desde = Carbon::parse(Arr::get($filters, 'desde', $defaultDesde))->startOfDay();
-        $hasta = Carbon::parse(Arr::get($filters, 'hasta', $defaultHasta))->endOfDay();
-        $solicitante = Arr::get($filters, 'search_solicitante'); // Este será un string con el nombre
-        $tipo = Arr::get($filters, 'search_tipo');             // Este será un string con el tipo
-
-        // Estos parámetros son parte del SP original, los pasamos como null si no se usan en el nuevo dashboard.
-        $grupo = Arr::get($filters, 'search_grupo', null);
-        $processo = Arr::get($filters, 'search_processo', null);
-        $numero = Arr::get($filters, 'search_numero', null);
-        $idamostra = Arr::get($filters, 'search_idamostra', null);
-        $cdamostra = Arr::get($filters, 'search_cdamostra', null);
-
-        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 para Dashboard con:', [
-            'Sit' => $status_param_for_sp,
-            'Solicitante' => $solicitante,
-            'Tipo' => $tipo,
-            'Desde' => $desde->toDateTimeString(),
-            'Hasta' => $hasta->toDateTimeString(),
-            'ProcesosCSV' => $procesosActivosString // Logueamos el nuevo parámetro
-        ]);
 
         try {
             $results = DB::connection('mylims')->select(
-                // El SP espera todos los parámetros. Pasamos null a los que no usamos.
-                'EXEC CLink_obtenerRegistrosFoodFiltrados1 @Sit = ?,@Solicitante=?,@Grupo=?,@Tipo=?,@Cdamostra=?,@Idamostra=?,@Processo=?,@Numero=?,@Desde=?,@Hasta=?, @ProcesosCSV = ?',
-                [
-                    $status_param_for_sp,
-                    $solicitante,
-                    $grupo,
-                    $tipo,
-                    $cdamostra,
-                    $idamostra,
-                    $processo,
-                    $numero,
-                    $desde,
-                    $hasta,
-                    $procesosActivosString // <--- NUEVO PARÁMETRO
-                ]
+                'EXEC dbo.CLink_obtenerRegistrosFoodDashboard @ProcesosCSV = ?, @Desde = ?, @Hasta = ?',
+                [$procesosActivosString, $desde, $hasta]
             );
 
             return collect($results)->map(fn($item) => (array) $item)->all();
         } catch (Exception $e) {
-            Log::error("Error en MyLimsService::getRawDataForDashboard", [
+            Log::error("Error en MyLimsService::getDashboardData", [
                 'exception_message' => $e->getMessage()
             ]);
-            throw new Exception("Error al obtener datos crudos para el dashboard: " . $e->getMessage());
+            throw new Exception("Error al obtener datos para el dashboard: " . $e->getMessage());
         }
     }
 

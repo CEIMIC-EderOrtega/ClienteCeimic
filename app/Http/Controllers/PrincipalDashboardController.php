@@ -19,76 +19,63 @@ class PrincipalDashboardController extends Controller
         $this->myLimsService = $myLimsService;
     }
 
+    // En app/Http/Controllers/PrincipalDashboardController.php
+
     public function index(Request $request)
     {
         try {
             $user = Auth::user();
-            $email = Auth::user()->email;
+            $email = $user->email; // Asumo que necesitas el email
 
+            // ================== SOLUCIÓN AQUÍ ==================
+            // Este comentario le dice al editor que $user es de tipo App\Models\User
+            // y así encontrará el método hasRole() y el error desaparecerá.
             /** @var \App\Models\User $user */
-
+            // ================================================
 
             if (!$user) {
                 return redirect()->route('login');
             }
 
+            // Ahora el editor ya no marcará error en la siguiente línea
             $isAdmin = $user->hasRole('Administrador');
 
-            // 1. VALIDAR Y ESTABLECER FILTROS
+            // 1. Validar permisos de procesos
+            $procesosIniciales = $this->myLimsService->checkProcesosUserEmpresa($email);
+            $listaDeIds = collect($procesosIniciales)->pluck('CDPROCESSO')->all();
+            $procesosActivosString = $this->myLimsService->ValidarProcesosActivosMax($listaDeIds);
+
+            if (empty($procesosActivosString)) {
+                return Inertia::render('Admin/Principal/Dashboard', [
+                    'masterData' => [],
+                    'currentFilters' => [
+                        'desde' => Carbon::now()->subMonth()->format('Y-m-d'),
+                        'hasta' => Carbon::now()->format('Y-m-d')
+                    ],
+                    'isAdmin' => $isAdmin
+                ]);
+            }
+
+            // 2. Validar y establecer el rango de fechas
             $filters = $request->validate([
-                'status' => 'nullable|string',
                 'desde' => 'nullable|date_format:Y-m-d',
                 'hasta' => 'nullable|date_format:Y-m-d',
-                'search_solicitante' => 'nullable|string',
-                'search_tipo' => 'nullable|string',
             ]);
 
-            $filters['status'] = $filters['status'] ?? '4';
-            $filters['desde'] = $filters['desde'] ?? Carbon::now()->subMonth()->toDateString();
-            $filters['hasta'] = $filters['hasta'] ?? Carbon::now()->toDateString();
+            $desde = Carbon::parse($filters['desde'] ?? Carbon::now()->subMonth())->startOfDay();
+            $hasta = Carbon::parse($filters['hasta'] ?? Carbon::now())->endOfDay();
 
-            // 2. LÓGICA DE ROLES PARA EL FILTRO 'SOLICITANTE'
-            $solicitanteParaSP = null;
-            if ($isAdmin) {
-                $solicitanteParaSP = $filters['search_solicitante'] ?? null;
-            } else {
+            // 3. Obtener los datos usando el nuevo método del servicio
+            $registros = $this->myLimsService->getDashboardData($procesosActivosString, $desde, $hasta);
 
-                $solicitanteParaSP = $user->company->name ?? null;
-                $filters['search_solicitante'] = $solicitanteParaSP;
-            }
-
-            // 3. OBTENER DATOS CRUDOS
-            $filtersParaSP = [
-                'status' => $filters['status'],
-                'desde' => $filters['desde'],
-                'hasta' => $filters['hasta'],
-                'search_solicitante' => $solicitanteParaSP,
-                'search_tipo' => $filters['search_tipo'] ?? null,
-            ];
-            $registros = $this->myLimsService->getRawDataForDashboard($filtersParaSP,$email );
-            $collection = collect($registros);
-
-            // 4. GENERAR OPCIONES PARA LOS FILTROS
-            $solicitantesOptions = [];
-            if ($isAdmin) {
-                // La lista de empresas solo se genera para el Admin.
-                $solicitantesOptions = $collection->pluck('Solicitante')->filter()->unique()->sort()->values()->all();
-            }
-            $tiposAmostraOptions = $collection->pluck('Tipo Amostra')->filter()->unique()->sort()->values()->all();
-
-            // 5. PROCESAR DATOS PARA GRÁFICOS
-            $barChartData = $collection->groupBy('Situacao')->map(fn($g) => $g->count());
-            $pieChartData = $collection->groupBy('Tipo Amostra')->map(fn($g) => $g->count());
-
-            // 6. RENDERIZAR VISTA
+            // 4. Renderizar la vista, pasando los datos crudos
             return Inertia::render('Admin/Principal/Dashboard', [
-                'chartData' => ['bar' => $barChartData, 'pie' => $pieChartData],
-                'filtersOptions' => [
-                    'solicitantes' => $solicitantesOptions,
-                    'tiposAmostra' => $tiposAmostraOptions,
+                'masterData' => $registros,
+                'currentFilters' => [
+                    'desde' => $desde->format('Y-m-d'),
+                    'hasta' => $hasta->format('Y-m-d')
                 ],
-                'currentFilters' => $filters,
-                'isAdmin' => $isAdmin,
+                'isAdmin' => $isAdmin
             ]);
         } catch (\Exception $e) {
             Log::error('Error en PrincipalDashboardController: ' . $e->getMessage(), ['exception' => $e]);
