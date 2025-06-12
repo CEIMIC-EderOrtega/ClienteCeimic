@@ -10,6 +10,7 @@ use Exception;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Support\Arr; // Para facilitar el manejo de arrays
 use Illuminate\Support\Facades\Config; // <-- Importa la fachada Config
+use Illuminate\Support\Facades\Http; // <-- ¡IMPORTANTE! Añade esta línea al principio del archivo.
 
 class MyLimsService
 {
@@ -688,4 +689,84 @@ class MyLimsService
             throw new Exception("Error al validar procesos activos: " . $e->getMessage());
         }
     }
+public function extraerLaudosEnIngles(array $codigosMuestra): array
+    {
+        // Configuración de la conexión y rutas
+        $baseUrl = 'https://clink.ceimic.com/mylims'; // URL base del sistema LIMS
+        $basePath = '\\\\cmccldlims01\\c$\\web\\mylims'; // Ruta de red (UNC)
+
+        $generatedPdfs = [];
+
+        // Hacemos el proceso uno por uno, como solicitaste
+        foreach ($codigosMuestra as $cdamostra) {
+            $sesionId = 'clink_' . uniqid() . '_' . $cdamostra;
+
+            try {
+                // Etapa 1: Registrar muestra en onlinedata.dbo.codigos
+                DB::connection('mylims')->transaction(function () use ($cdamostra, $sesionId) {
+                    DB::connection('mylims')->table('onlinedata.dbo.codigos')->where('sesion', $sesionId)->delete();
+                    DB::connection('mylims')->table('onlinedata.dbo.codigos')->insert([
+                        'CDAMOSTRA' => $cdamostra,
+                        'SESION' => $sesionId
+                    ]);
+                });
+
+                // Etapa 2: Llamar a la URL para generar el PDF
+                $urlGenera = "{$baseUrl}/gera_per_html.php?sesion={$sesionId}&lng=1&directo=1";
+                $nombreArchivo = Http::timeout(180)->get($urlGenera)->body();
+
+                if (empty(trim($nombreArchivo)) || stripos($nombreArchivo, 'Error') !== false) {
+                    Log::warning("Fallo al generar informe en inglés para cdamostra {$cdamostra}. Respuesta: {$nombreArchivo}");
+                    continue; // Saltar a la siguiente muestra
+                }
+
+                // Etapa 3: Leer el PDF desde la ruta de red
+                $rutaCompleta = "{$basePath}\\laudos\\" . trim($nombreArchivo);
+                if (!file_exists($rutaCompleta)) {
+                    $rutaCompleta = "{$basePath}\\Relatorios\\" . trim($nombreArchivo);
+                }
+
+                if (file_exists($rutaCompleta)) {
+                    $generatedPdfs[] = [
+                        'NombreLaudo' => trim($nombreArchivo),
+                        'LaudoBinario' => file_get_contents($rutaCompleta)
+                    ];
+                } else {
+                    Log::warning("Informe en inglés generado pero no encontrado en ruta de red: {$rutaCompleta}");
+                }
+
+            } catch (\Exception $e) {
+                Log::error("Error procesando informe en inglés para cdamostra {$cdamostra}: " . $e->getMessage());
+                continue; // Si uno falla, continuamos con el siguiente
+            }
+        }
+
+        if (empty($generatedPdfs)) {
+            return []; // No se generó ningún informe con éxito
+        }
+
+        // Si se generó más de un PDF, los comprimimos en un ZIP
+        if (count($generatedPdfs) > 1) {
+            $zip = new ZipArchive();
+            $zipName = 'Informes_Ingles_' . date('Y-m-d_H-i-s') . '.zip';
+            $tmpFile = tempnam(sys_get_temp_dir(), 'zip');
+
+            if ($zip->open($tmpFile, ZipArchive::CREATE) === TRUE) {
+                foreach ($generatedPdfs as $pdf) {
+                    $zip->addFromString($pdf['NombreLaudo'], $pdf['LaudoBinario']);
+                }
+                $zip->close();
+
+                $zipContent = file_get_contents($tmpFile);
+                @unlink($tmpFile);
+
+                return [['NombreLaudo' => $zipName, 'Laudo' => base64_encode($zipContent)]];
+            }
+        }
+
+        // Si solo hay un PDF, lo devolvemos directamente
+        $singlePdf = $generatedPdfs[0];
+        return [['NombreLaudo' => $singlePdf['NombreLaudo'], 'Laudo' => base64_encode($singlePdf['LaudoBinario'])]];
+    }
+
 }

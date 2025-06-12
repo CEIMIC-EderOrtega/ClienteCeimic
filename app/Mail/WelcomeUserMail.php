@@ -42,14 +42,16 @@ class WelcomeUserMail extends Mailable
     /**
      * Get the message content definition.
      */
+    // En app/Mail/WelcomeUserMail.php
     public function content(): Content
     {
-        // Le decimos que use una plantilla Blade para el contenido del correo
         return new Content(
-            markdown: 'emails.welcome', // Apunta a resources/views/emails/welcome.blade.php
+            markdown: 'emails.welcome',
+            with: [ // <-- Añadimos este array 'with'
+                'user' => $this->user,
+            ]
         );
     }
-
     /**
      * Get the attachments for the message.
      *

@@ -84,61 +84,46 @@ class GetMuestrasController extends Controller
      * @param Request $request Debe contener 'selected_ids' como un array.
      * @return JsonResponse
      */
+    // En app/Http/Controllers/GetMuestrasController.php
+
     public function extraerLaudos(Request $request): JsonResponse
     {
-        // Validar la entrada: esperamos un array de IDs.
-        $request->validate([
+        $validated = $request->validate([
             'selected_ids' => 'required|array',
-            'selected_ids.*' => 'required|string|distinct', // Ajusta el tipo ('string', 'integer') si es necesario
+            'selected_ids.*' => 'required|string|distinct',
+            'language' => 'sometimes|string|in:es,en'
         ]);
 
-        $selectedIds = $request->input('selected_ids');
+        $selectedIds = $validated['selected_ids'];
+        $language = $validated['language'] ?? 'es';
 
-        $email = Auth::user()->email; // Obtener el correo del usuario autenticado
-
-
-        Log::info('Solicitud de extraerLaudos recibida:', [
-            'email' => $email,
-            'selected_ids_count' => count($selectedIds)
-        ]);
+        // ===================================================================
+        // === SOLUCIÓN AQUÍ: Definimos la variable $email para el log ===
+        // ===================================================================
+        $email = Auth::user() ? Auth::user()->email : 'No autenticado';
+        // ===================================================================
 
         try {
+            if ($language === 'en') {
+                $laudosData = $this->myLimsService->extraerLaudosEnIngles($selectedIds);
+            } else {
+                $laudosData = $this->myLimsService->extraerLaudos($selectedIds);
+            }
 
-            // Llamar al nuevo método del servicio
-            $laudosData = $this->myLimsService->extraerLaudos($selectedIds);
-
-            // Devolver los datos de los laudos como respuesta JSON
-            return response()->json([
-                'success' => true,
-                'message' => 'Laudos extraídos exitosamente.',
-                'data' => $laudosData
-            ]);
-        } catch (\InvalidArgumentException $e) {
-            // Error de validación de parámetros internos del servicio
-            Log::warning('Solicitud extraerLaudos con parámetros inválidos:', [
-                'message' => $e->getMessage(),
-                'email' => $email,
-                'selected_ids' => $selectedIds
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400); // Bad Request
-
+            return response()->json(['success' => true, 'message' => 'Laudos extraídos.', 'data' => $laudosData]);
         } catch (\Exception $e) {
-            // Capturar cualquier otro error del servicio o base de datos
+            // Ahora, cuando se ejecute este bloque, la variable $email sí existirá.
             Log::error('Error en GetMuestrasController::extraerLaudos:', [
                 'message' => $e->getMessage(),
-                'email' => $email,
+                'email' => $email, // <-- Ya no dará error
                 'selected_ids' => $selectedIds,
                 'exception' => $e
             ]);
 
-            // Devolver una respuesta de error JSON
             return response()->json([
                 'success' => false,
                 'message' => 'Error al extraer laudos: ' . $e->getMessage()
-            ], 500); // Internal Server Error
+            ], 500);
         }
     }
 }

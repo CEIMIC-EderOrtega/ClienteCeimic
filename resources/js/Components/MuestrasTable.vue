@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { route } from "ziggy-js";
-import * as XLSX from "xlsx"; // <-- IMPORTAR XLSX
+import * as XLSX from "xlsx";
 import {
     CogIcon,
     ArrowDownTrayIcon,
@@ -14,7 +14,6 @@ import {
     ArrowLeftIcon,
     XMarkIcon,
     ShieldExclamationIcon,
-    // Agrega estos si no los tienes aún, son útiles para los detalles:
     BuildingOfficeIcon, // Para Cliente, Dirección
     IdentificationIcon, // Para Número Identificador
     UserIcon, // Para Muestreado por, Muestreador (persona)
@@ -29,17 +28,17 @@ import {
     BeakerIcon, // Para MRL (si lo consideras apropiado)
     GlobeAltIcon, // Para Mercados
     ShoppingCartIcon, // Para Retailers
-    // Puedes elegir otros si prefieres:
-    // UserGroupIcon, // Para Cliente
-    // ClipboardDocumentListIcon, // Para Registro Agrícola
-    // HomeModernIcon // Para Predio
 } from "@heroicons/vue/24/outline";
-//--para alert
-// En la sección de imports de <script setup>
+
 import { useToast, POSITION } from "vue-toastification"; // Añade POSITION aquí
 const toast = useToast();
+
+// --- NUEVO: ESTADO PARA EL MODAL DE IDIOMA ---
+const showLanguageModal = ref(false);
+const selectedLanguage = ref("es"); // 'es' para español, 'en' para inglés. 'es' por defecto.
+
 //------------------------------------------------------------------------------------------------------------------------
-import MultiSelectDropdown from "@/Components/MultiSelectDropdown.vue"; // Asegúrate que la ruta sea correcta
+import MultiSelectDropdown from "@/Components/MultiSelectDropdown.vue";
 
 // --- MODAL PARA GENERAR INFORME MRL ---
 const showMrlModal = ref(false);
@@ -51,11 +50,10 @@ const mrlSelections = ref({
     language: "0", // 0 para español, 1 para inglés
 });
 
-// NUEVA FUNCIÓN: Determina si la situación de una muestra permite la acción
 // Normaliza a minúsculas para una comparación robusta.
 const isSituacaoPermitida = (item) => {
-    const situacao = item.Situacao ? String(item.Situacao).toLowerCase() : '';
-    const estadosProhibidos = ['recebida', 'finalizada', 'em processo'];
+    const situacao = item.Situacao ? String(item.Situacao).toLowerCase() : "";
+    const estadosProhibidos = ["recebida", "finalizada", "em processo"];
     return !estadosProhibidos.includes(situacao);
 };
 
@@ -64,9 +62,8 @@ const areAllSelectedPermitidos = computed(() => {
     if (selectedItems.value.length === 0) {
         return false;
     }
-    return selectedItems.value.every(item => isSituacaoPermitida(item));
+    return selectedItems.value.every((item) => isSituacaoPermitida(item));
 });
-
 
 const showMrlButton = computed(() => {
     // 1. Pre-condición: Debe haber EXACTAMENTE UN ítem seleccionado.
@@ -99,7 +96,6 @@ const showInformeButton = computed(() => {
     return areAllSelectedPermitidos.value;
 });
 
-
 // NUEVA: Propiedad computada para el DIV que contiene los botones de acción.
 // Esto evitará que se muestre un div vacío si no se cumplen las condiciones para ninguno de los botones.
 const showActionButtonsDiv = computed(() => {
@@ -107,9 +103,7 @@ const showActionButtonsDiv = computed(() => {
     return showInformeButton.value || showMrlButton.value;
 });
 
-
 async function openMrlModal() {
-
     showMrlModal.value = true;
 }
 // *** NUEVA FUNCIÓN PARA CARGAR OPCIONES MRL UNA VEZ ***
@@ -127,7 +121,7 @@ async function fetchMrlOptionsOnce() {
             );
             alert(
                 response.data.message ||
-                "Error al cargar opciones MRL iniciales."
+                    "Error al cargar opciones MRL iniciales."
             );
         }
     } catch (error) {
@@ -145,13 +139,18 @@ async function fetchMrlOptionsOnce() {
 async function descargarInformeIndividual() {
     // Verificamos que tengamos un registro de detalle cargado
     if (!detailRecord.value?.cdamostra) {
-        toast.warning("No hay una muestra cargada para descargar el informe.", { position: POSITION.TOP_CENTER });
+        toast.warning("No hay una muestra cargada para descargar el informe.", {
+            position: POSITION.TOP_CENTER,
+        });
         return;
     }
 
     // Comprobamos la morosidad, igual que en la función principal
-    if (detailRecord.value.moroso === 'S') {
-        toast.error(`No es posible generar el informe. La muestra registra un estado de morosidad.`, { timeout: 8000, position: POSITION.TOP_CENTER });
+    if (detailRecord.value.moroso === "S") {
+        toast.error(
+            `No es posible generar el informe. La muestra registra un estado de morosidad.`,
+            { timeout: 8000, position: POSITION.TOP_CENTER }
+        );
         return;
     }
 
@@ -178,13 +177,22 @@ async function descargarInformeIndividual() {
                     );
                 }
             }
-            toast.success("Informe descargado exitosamente.", { position: POSITION.TOP_CENTER });
+            toast.success("Informe descargado exitosamente.", {
+                position: POSITION.TOP_CENTER,
+            });
         } else {
-            toast.error(data.message || "No se encontró el informe para esta muestra.", { position: POSITION.TOP_CENTER });
+            toast.error(
+                data.message || "No se encontró el informe para esta muestra.",
+                { position: POSITION.TOP_CENTER }
+            );
         }
     } catch (e) {
         console.error("Error al generar informe individual:", e);
-        toast.error("Error al generar informe: " + (e.response?.data?.message || e.message), { position: POSITION.TOP_CENTER });
+        toast.error(
+            "Error al generar informe: " +
+                (e.response?.data?.message || e.message),
+            { position: POSITION.TOP_CENTER }
+        );
     } finally {
         isGenerating.value = false; // Desactivamos el loader
     }
@@ -197,10 +205,13 @@ async function handleGenerateMrlReport() {
         .map((item) => item.cdamostra);
 
     if (mrlSampleIds.length === 0) {
-        toast.error("No se encontró una muestra MRL válida seleccionada para generar el informe.", {
-            timeout: 3000,
-            position: POSITION.TOP_CENTER,
-        });
+        toast.error(
+            "No se encontró una muestra MRL válida seleccionada para generar el informe.",
+            {
+                timeout: 3000,
+                position: POSITION.TOP_CENTER,
+            }
+        );
         return;
     }
 
@@ -253,7 +264,7 @@ async function handleGenerateMrlReport() {
         console.error("Error al generar informe MRL:", error);
         toast.error(
             "Error al generar informe MRL: " +
-            (error.message || "Consulte la consola."),
+                (error.message || "Consulte la consola."),
             { timeout: 5000, position: POSITION.TOP_CENTER }
         );
     } finally {
@@ -268,10 +279,11 @@ async function handleGenerateMrlReport() {
 const props = defineProps({
     items: { type: Array, default: () => [] },
     rows: { type: Number, default: 10 },
-    mrlReportEnabled: { // <-- NUEVA PROP: Habilitar/Deshabilitar botón MRL desde backend
+    mrlReportEnabled: {
+        // <-- NUEVA PROP: Habilitar/Deshabilitar botón MRL desde backend
         type: Boolean,
-        default: true // Por defecto visible si no se especifica
-    }
+        default: true, // Por defecto visible si no se especifica
+    },
 });
 
 // Definición de estilos para el Excel con enfoque UX/UI mejorado
@@ -356,9 +368,9 @@ const definedColumns = ref([
 
     { field: "Processo", header: "Proceso" },
     { field: "Numero", header: "N° Informe" },
-   //{ field: "Id. Amostra", header: "Id. Amostra" },
+    //{ field: "Id. Amostra", header: "Id. Amostra" },
     { field: "MATRIZ", header: "Especie" },
-   // { field: "Tipo Amostra", header: "Tipo Amostra" },
+    // { field: "Tipo Amostra", header: "Tipo Amostra" },
     { field: "cdamostra", header: "Código Lab." },
     { field: "Solicitante", header: "Solicitante" },
     { field: "Coleta", header: "Fecha Muestreo" },
@@ -373,7 +385,6 @@ const definedColumns = ref([
     { field: "retailers", header: "Retailers" },
 ]);
 
-
 const resultsColumns = ref([
     { field: "NUMERO", header: "Número" },
     { field: "MATRIZ", header: "Descripción de la Muestra" },
@@ -382,7 +393,6 @@ const resultsColumns = ref([
     { field: "RES", header: "Resultado" },
     { field: "UNID", header: "Unidad" },
 ]);
-
 
 // --- INICIALIZACIÓN Y WATCHERS ---
 onMounted(() => {
@@ -405,7 +415,8 @@ watch(pagination, updatePaginationHeight, { flush: "post" });
 
 watch(
     detailRecord,
-    async (newDetailRecord, oldDetailRecord) => { // <-- Añadimos 'async' aquí
+    async (newDetailRecord, oldDetailRecord) => {
+        // <-- Añadimos 'async' aquí
         if (
             showDetailPanel.value &&
             newDetailRecord?.cdamostra &&
@@ -425,7 +436,6 @@ watch(
     },
     { deep: true }
 );
-
 
 // --- LÓGICA VISIBILIDAD COLUMNAS (Tabla Principal) ---
 function initializeColumnVisibility() {
@@ -659,19 +669,26 @@ async function fetchExtendedDetails(cdamostra) {
     extendedDetailRecord.value = {}; // Limpia antes de la carga
 
     try {
-        const response = await axios.post(route("muestras.getExtendedDetails"), { // <-- LLAMA A LA NUEVA RUTA
-            cdamostra,
-        });
+        const response = await axios.post(
+            route("muestras.getExtendedDetails"),
+            {
+                // <-- LLAMA A LA NUEVA RUTA
+                cdamostra,
+            }
+        );
         const data = response.data;
 
         if (data.success) {
             extendedDetailRecord.value = data.extended_details || {};
         } else {
             console.error("Error al cargar detalles extendidos:", data.message);
-            toast.error(data.message || "Error al cargar detalles adicionales.", {
-                timeout: 3000,
-                position: POSITION.TOP_CENTER,
-            });
+            toast.error(
+                data.message || "Error al cargar detalles adicionales.",
+                {
+                    timeout: 3000,
+                    position: POSITION.TOP_CENTER,
+                }
+            );
             extendedDetailRecord.value = {};
         }
     } catch (error) {
@@ -683,7 +700,77 @@ async function fetchExtendedDetails(cdamostra) {
         extendedDetailRecord.value = {};
     }
 }
+function ejecutarInforme() {
+    // Las validaciones de siempre se mantienen
+    if (!selectedItems.value.length || !showInformeButton.value) {
+        toast.warning(
+            "Para generar informes, todas las muestras seleccionadas deben tener una situación que permita la acción.",
+            { position: POSITION.TOP_CENTER }
+        );
+        return;
+    }
+    const moroseSamples = selectedItems.value.filter(
+        (item) => item.moroso === "S"
+    );
+    if (moroseSamples.length > 0) {
+        toast.error(`No es posible generar el informe por morosidad.`, {
+            timeout: 8000,
+            position: POSITION.TOP_CENTER,
+        });
+        return;
+    }
 
+    // En lugar de descargar, ahora abrimos el modal
+    showLanguageModal.value = true;
+}
+// --- NUEVA FUNCIÓN: Se ejecuta desde el modal para generar el informe ---
+async function handleGenerateReport() {
+    showLanguageModal.value = false; // Cerramos el modal
+    isGenerating.value = true; // Activamos el loader
+
+    try {
+        const idsToProcess = selectedItems.value.map((i) => i.cdamostra);
+
+        // Llamamos al mismo endpoint, pero ahora enviamos el idioma seleccionado
+        const resp = await axios.post(
+            route("muestras.extraerLaudos"),
+            {
+                selected_ids: idsToProcess,
+                language: selectedLanguage.value, // <-- NUEVO PARÁMETRO
+            },
+            { timeout: 300000 } // Aumentamos timeout a 5 minutos por si el proceso es lento
+        );
+
+        const data = resp.data;
+        if (data.success && data.data?.length > 0) {
+            for (const fileData of data.data) {
+                if (fileData.Laudo && fileData.NombreLaudo) {
+                    await downloadBase64File(
+                        fileData.Laudo,
+                        fileData.NombreLaudo,
+                        getMimeType(fileData.NombreLaudo)
+                    );
+                }
+            }
+            toast.success(
+                `Se generaron y descargaron ${data.data.length} informes.`
+            );
+        } else {
+            toast.error(
+                data.message || "No se encontraron laudos o hubo un error."
+            );
+        }
+    } catch (e) {
+        console.error("Error al generar informe:", e);
+        toast.error(
+            "Error al generar informe: " +
+                (e.response?.data?.message || e.message)
+        );
+    } finally {
+        isGenerating.value = false;
+    }
+}
+/*
 async function ejecutarInforme() {
     // Aquí la validación se hace con `showInformeButton`, que ya considera la Situacao.
     if (!selectedItems.value.length || !showInformeButton.value) {
@@ -761,7 +848,7 @@ async function ejecutarInforme() {
     } finally {
         isGenerating.value = false;
     }
-}
+}*/
 // --- NUEVA FUNCIÓN PARA EXPORTAR EXCEL DESDE EL BACKEND ---
 async function handleExportBackend() {
     if (!detailRecord.value?.cdamostra) {
@@ -786,18 +873,31 @@ async function handleExportBackend() {
 
         // --- CORRECCIÓN CLAVE AQUÍ: Definir el nombre del archivo directamente ---
         // Ya que el Content-Disposition del backend a veces no se parsea bien con responseType: 'blob'
-        const filename = `Resultados_Muestra_${detailRecord.value["Id. Amostra"] || detailRecord.value.cdamostra || "export"
-            }.xlsx`;
+        const filename = `Resultados_Muestra_${
+            detailRecord.value["Id. Amostra"] ||
+            detailRecord.value.cdamostra ||
+            "export"
+        }.xlsx`;
         // No necesitamos la lógica de `if (header)` si definimos el nombre directamente.
 
         // Comprobar si la respuesta es un error en formato JSON en lugar de un blob
-        if (response.headers['content-type'] && response.headers['content-type'].includes('application/json')) {
+        if (
+            response.headers["content-type"] &&
+            response.headers["content-type"].includes("application/json")
+        ) {
             const errorData = JSON.parse(await response.data.text());
-            throw new Error(errorData.message || "El servidor devolvió un error inesperado al generar el Excel.");
+            throw new Error(
+                errorData.message ||
+                    "El servidor devolvió un error inesperado al generar el Excel."
+            );
         }
 
         // Lógica de descarga
-        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); // <--- ¡Aseguramos el MIME type aquí también!
+        const url = window.URL.createObjectURL(
+            new Blob([response.data], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            })
+        ); // <--- ¡Aseguramos el MIME type aquí también!
         const link = document.createElement("a");
         link.href = url;
         link.setAttribute("download", filename); // El nombre deseado
@@ -810,10 +910,12 @@ async function handleExportBackend() {
             timeout: 3000,
             position: POSITION.TOP_CENTER,
         });
-
     } catch (error) {
         console.error("Error al exportar Excel desde el backend:", error);
-        const errorMessage = error.response?.data?.message || error.message || "Error desconocido al generar el Excel.";
+        const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            "Error desconocido al generar el Excel.";
         toast.error(`Error al generar Excel: ${errorMessage}`, {
             timeout: 5000,
             position: POSITION.TOP_CENTER,
@@ -894,7 +996,6 @@ function getRowClass(item) {
         return "bg-red-50 hover:bg-red-100 text-red-700"; // Rojo más sutil pero destacable para MRL válidos
     }
 
-
     // 3. Si no es una alerta MRL, revisa si está seleccionada.
     if (isSelected(item)) {
         return "bg-blue-50 hover:bg-blue-100/50";
@@ -907,34 +1008,73 @@ function getRowClass(item) {
 
 <template>
     <div>
-        <div v-if="isGenerating"
-            class="fixed top-4 right-4 bg-yellow-100 text-yellow-800 p-3 rounded shadow-lg z-50 border flex items-center">
-            <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l2-2.647z">
-                </path>
+        <div
+            v-if="isGenerating"
+            class="fixed top-4 right-4 bg-yellow-100 text-yellow-800 p-3 rounded shadow-lg z-50 border flex items-center"
+        >
+            <svg
+                class="animate-spin h-4 w-4 mr-2"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l2-2.647z"
+                ></path>
             </svg>
             Generando informe…
         </div>
 
         <Transition name="fade-view" mode="out-in">
-            <div v-if="!showDetailPanel" key="tableView" class="datatable-container">
-                <div class="datatable-header-responsive flex flex-wrap items-center mb-4 gap-2">
-                    <div class="flex flex-grow items-center gap-2 order-1 md:order-1 w-full md:w-auto">
+            <div
+                v-if="!showDetailPanel"
+                key="tableView"
+                class="datatable-container"
+            >
+                <div
+                    class="datatable-header-responsive flex flex-wrap items-center mb-4 gap-2"
+                >
+                    <div
+                        class="flex flex-grow items-center gap-2 order-1 md:order-1 w-full md:w-auto"
+                    >
                         <Transition name="fade-actions">
                             <div>
-                                <div v-if="showActionButtonsDiv" class="flex flex-wrap gap-2">
-                                    <button v-if="showInformeButton" type="button" @click="ejecutarInforme"
+                                <div
+                                    v-if="showActionButtonsDiv"
+                                    class="flex flex-wrap gap-2"
+                                >
+                                    <button
+                                        v-if="showInformeButton"
+                                        type="button"
+                                        @click="ejecutarInforme"
                                         :disabled="isGenerating"
-                                        class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60">
-                                        <ArrowDownTrayIcon class="w-4 h-4 mr-1 inline-block" />
+                                        class="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-60"
+                                    >
+                                        <ArrowDownTrayIcon
+                                            class="w-4 h-4 mr-1 inline-block"
+                                        />
                                         Informe ({{ selectedItems.length }})
                                     </button>
-                                    <button v-if="showMrlButton" type="button" @click="openMrlModal"
+                                    <button
+                                        v-if="showMrlButton"
+                                        type="button"
+                                        @click="openMrlModal"
                                         :disabled="isGenerating"
-                                        class="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-60 flex items-center">
-                                        <ShieldExclamationIcon class="w-4 h-4 mr-1 inline-block" />
+                                        class="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-60 flex items-center"
+                                    >
+                                        <ShieldExclamationIcon
+                                            class="w-4 h-4 mr-1 inline-block"
+                                        />
                                         MRL
                                     </button>
                                 </div>
@@ -943,26 +1083,49 @@ function getRowClass(item) {
                         </Transition>
                     </div>
 
-                    <div class="relative flex items-center gap-2 order-2 md:order-2 ml-auto w-auto flex-shrink-0">
+                    <div
+                        class="relative flex items-center gap-2 order-2 md:order-2 ml-auto w-auto flex-shrink-0"
+                    >
                         <div class="relative inline-block text-left">
-                            <button id="column-toggle-button" type="button" @click="toggleColumnVisibilityDropdown"
+                            <button
+                                id="column-toggle-button"
+                                type="button"
+                                @click="toggleColumnVisibilityDropdown"
                                 title="Mostrar/Ocultar Columnas"
-                                class="p-2 rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200">
+                                class="p-2 rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200"
+                            >
                                 <CogIcon class="w-5 h-5 text-gray-700" />
                             </button>
                             <Transition name="fade-actions">
-                                <div v-if="showColumnToggle" id="column-toggle-dropdown"
-                                    class="absolute right-0 top-full mt-1 w-56 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50 p-3 border">
-                                    <p class="text-sm font-semibold mb-2 border-b pb-1">
+                                <div
+                                    v-if="showColumnToggle"
+                                    id="column-toggle-dropdown"
+                                    class="absolute right-0 top-full mt-1 w-56 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50 p-3 border"
+                                >
+                                    <p
+                                        class="text-sm font-semibold mb-2 border-b pb-1"
+                                    >
                                         Columnas
                                     </p>
                                     <div
-                                        class="flex flex-col gap-1.5 max-h-60 overflow-y-auto text-sm pr-2 scrollable-area">
-                                        <label v-for="col in definedColumns" :key="'toggle-' + col.field"
-                                            class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                                            <input type="checkbox" v-model="columnVisibility[col.field]
-                                                " class="form-checkbox h-4 w-4 text-blue-600 rounded" />
-                                            <span class="ml-2 text-gray-700 select-none">{{ col.header }}</span>
+                                        class="flex flex-col gap-1.5 max-h-60 overflow-y-auto text-sm pr-2 scrollable-area"
+                                    >
+                                        <label
+                                            v-for="col in definedColumns"
+                                            :key="'toggle-' + col.field"
+                                            class="inline-flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                v-model="
+                                                    columnVisibility[col.field]
+                                                "
+                                                class="form-checkbox h-4 w-4 text-blue-600 rounded"
+                                            />
+                                            <span
+                                                class="ml-2 text-gray-700 select-none"
+                                                >{{ col.header }}</span
+                                            >
                                         </label>
                                     </div>
                                 </div>
@@ -971,66 +1134,115 @@ function getRowClass(item) {
                     </div>
                 </div>
 
-                <div class="overflow-x-auto relative border border-gray-200 rounded-md scrollable-area" :style="{
-                    maxHeight: `calc(85vh - 180px - ${paginationHeight}px)`,
-                }">
+                <div
+                    class="overflow-x-auto relative border border-gray-200 rounded-md scrollable-area"
+                    :style="{
+                        maxHeight: `calc(85vh - 180px - ${paginationHeight}px)`,
+                    }"
+                >
                     <table class="min-w-full border-collapse compact-datatable">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="p-2 text-center border-b-2 bg-gray-100 sticky top-0 z-10 w-10">
-                                    <input type="checkbox" title="Seleccionar Todos (Página)" :checked="allVisibleSelected &&
-                                        paginatedItems.length > 0
-                                        " :indeterminate="paginatedItems.length > 0 &&
+                                <th
+                                    class="p-2 text-center border-b-2 bg-gray-100 sticky top-0 z-10 w-10"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        title="Seleccionar Todos (Página)"
+                                        :checked="
+                                            allVisibleSelected &&
+                                            paginatedItems.length > 0
+                                        "
+                                        :indeterminate="
+                                            paginatedItems.length > 0 &&
                                             !allVisibleSelected &&
                                             selectedItems.some(isSelected)
-                                            " @change="toggleAllSelection"
-                                        class="form-checkbox h-4 w-4 text-blue-600 rounded" />
+                                        "
+                                        @change="toggleAllSelection"
+                                        class="form-checkbox h-4 w-4 text-blue-600 rounded"
+                                    />
                                 </th>
-                                <template v-for="col in definedColumns" :key="col.field">
-                                    <th v-if="columnVisibility[col.field]"
+                                <template
+                                    v-for="col in definedColumns"
+                                    :key="col.field"
+                                >
+                                    <th
+                                        v-if="columnVisibility[col.field]"
                                         class="p-2 text-start border-b-2 bg-gray-100 font-bold text-sm sticky top-0 z-10 whitespace-nowrap"
                                         :style="{
                                             'min-width':
                                                 col.field === 'Solicitante'
                                                     ? '12rem'
                                                     : '8rem',
-                                        }">
+                                        }"
+                                    >
                                         <span class="truncate">{{
                                             col.header
-                                            }}</span>
+                                        }}</span>
                                     </th>
                                 </template>
                             </tr>
                             <tr class="bg-gray-50">
                                 <th class="p-1"></th>
-                                <template v-for="col in definedColumns" :key="'filtro-' + col.field">
-                                    <th v-if="columnVisibility[col.field]" class="p-1">
-                                        <input type="text" v-model="columnFilters[col.field]" placeholder="Filtrar"
-                                            class="w-full border rounded px-1 py-0.5 text-xs" />
+                                <template
+                                    v-for="col in definedColumns"
+                                    :key="'filtro-' + col.field"
+                                >
+                                    <th
+                                        v-if="columnVisibility[col.field]"
+                                        class="p-1"
+                                    >
+                                        <input
+                                            type="text"
+                                            v-model="columnFilters[col.field]"
+                                            placeholder="Filtrar"
+                                            class="w-full border rounded px-1 py-0.5 text-xs"
+                                        />
                                     </th>
                                 </template>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="filteredItems.length === 0">
-                                <td :colspan="definedColumns.filter(
-                                    (c) => columnVisibility[c.field]
-                                ).length + 1
-                                    " class="text-center p-6 text-gray-500 italic">
+                                <td
+                                    :colspan="
+                                        definedColumns.filter(
+                                            (c) => columnVisibility[c.field]
+                                        ).length + 1
+                                    "
+                                    class="text-center p-6 text-gray-500 italic"
+                                >
                                     No se encontraron registros.
                                 </td>
                             </tr>
-                            <tr v-for="item in paginatedItems" :key="item.cdamostra"
-                                class="cursor-pointer transition-colors duration-150" :class="getRowClass(item)"
-                                @click="handleRowClick($event, item)">
+                            <tr
+                                v-for="item in paginatedItems"
+                                :key="item.cdamostra"
+                                class="cursor-pointer transition-colors duration-150"
+                                :class="getRowClass(item)"
+                                @click="handleRowClick($event, item)"
+                            >
                                 <td class="p-2 text-center">
-                                    <input type="checkbox" :checked="isSelected(item)"
-                                        @change.stop="toggleSelection(item)" @click.stop
+                                    <input
+                                        type="checkbox"
+                                        :checked="isSelected(item)"
+                                        @change.stop="toggleSelection(item)"
+                                        @click.stop
                                         class="form-checkbox h-4 w-4 text-blue-600 rounded"
-                                        :disabled="!isSituacaoPermitida(item) && !isSelected(item)" />
+                                        :disabled="
+                                            !isSituacaoPermitida(item) &&
+                                            !isSelected(item)
+                                        "
+                                    />
                                 </td>
-                                <template v-for="col in definedColumns" :key="col.field + '-data'">
-                                    <td v-if="columnVisibility[col.field]" class="p-2 text-start text-sm text-gray-700">
+                                <template
+                                    v-for="col in definedColumns"
+                                    :key="col.field + '-data'"
+                                >
+                                    <td
+                                        v-if="columnVisibility[col.field]"
+                                        class="p-2 text-start text-sm text-gray-700"
+                                    >
                                         {{ item[col.field] ?? "-" }}
                                     </td>
                                 </template>
@@ -1039,17 +1251,19 @@ function getRowClass(item) {
                     </table>
                 </div>
 
-                <div ref="pagination"
-                    class="flex flex-col sm:flex-row justify-between items-center mt-3 p-3 bg-gray-50 border rounded-md text-sm">
+                <div
+                    ref="pagination"
+                    class="flex flex-col sm:flex-row justify-between items-center mt-3 p-3 bg-gray-50 border rounded-md text-sm"
+                >
                     <span>
                         Mostrando
                         {{
                             filteredItems.length > 0
                                 ? Math.min(
-                                    (currentPage - 1) * Number(itemsPerPage) +
-                                    1,
-                                    filteredItems.length
-                                )
+                                      (currentPage - 1) * Number(itemsPerPage) +
+                                          1,
+                                      filteredItems.length
+                                  )
                                 : 0
                         }}
                         a
@@ -1062,8 +1276,11 @@ function getRowClass(item) {
                         de {{ filteredItems.length }}
                     </span>
                     <div class="flex items-center gap-1.5">
-                        <select v-model="itemsPerPage" @change="currentPage = 1"
-                            class="border border-gray-300 rounded px-2 h-8 text-xs focus:border-indigo-500 bg-white shadow-sm">
+                        <select
+                            v-model="itemsPerPage"
+                            @change="currentPage = 1"
+                            class="border border-gray-300 rounded px-2 h-8 text-xs focus:border-indigo-500 bg-white shadow-sm"
+                        >
                             <option value="10">10</option>
                             <option value="20">20</option>
                             <option value="50">50</option>
@@ -1071,23 +1288,39 @@ function getRowClass(item) {
                                 Todos ({{ props.items.length }})
                             </option>
                         </select>
-                        <button @click="goToPage(1)" :disabled="currentPage === 1"
-                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm">
+                        <button
+                            @click="goToPage(1)"
+                            :disabled="currentPage === 1"
+                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm"
+                        >
                             &laquo;
                         </button>
-                        <button @click="prevPage" :disabled="currentPage === 1"
-                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm">
+                        <button
+                            @click="prevPage"
+                            :disabled="currentPage === 1"
+                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm"
+                        >
                             &lsaquo;
                         </button>
                         <span>Pág {{ currentPage }}/{{ totalPages }}</span>
-                        <button @click="nextPage" :disabled="currentPage === totalPages ||
-                            filteredItems.length === 0
-                            " class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm">
+                        <button
+                            @click="nextPage"
+                            :disabled="
+                                currentPage === totalPages ||
+                                filteredItems.length === 0
+                            "
+                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm"
+                        >
                             &rsaquo;
                         </button>
-                        <button @click="goToPage(totalPages)" :disabled="currentPage === totalPages ||
-                            filteredItems.length === 0
-                            " class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm">
+                        <button
+                            @click="goToPage(totalPages)"
+                            :disabled="
+                                currentPage === totalPages ||
+                                filteredItems.length === 0
+                            "
+                            class="px-2 h-8 rounded border hover:bg-gray-200 disabled:opacity-50 shadow-sm"
+                        >
                             &raquo;
                         </button>
                     </div>
@@ -1095,241 +1328,510 @@ function getRowClass(item) {
             </div>
 
             <div v-else key="detailView" class="detail-view-container">
-                <div class="detail-view-header flex justify-between items-center">
-                    <h2 class="text-xl font-semibold flex items-center gap-2 text-gray-800">
+                <div
+                    class="detail-view-header flex justify-between items-center"
+                >
+                    <h2
+                        class="text-xl font-semibold flex items-center gap-2 text-gray-800"
+                    >
                         <InformationCircleIcon class="w-6 h-6 text-blue-600" />
                         Detalle Muestra:
                         {{
                             detailRecord["Id.Amostra"] || detailRecord.cdamostra
                         }}
                     </h2>
-                    <button type="button"
+                    <button
+                        type="button"
                         class="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 p-2 rounded hover:bg-blue-50"
-                        title="Volver a la tabla" @click="hideDetailPanel">
+                        title="Volver a la tabla"
+                        @click="hideDetailPanel"
+                    >
                         <ArrowLeftIcon class="w-4 h-4" /> Volver a Tabla
                     </button>
                 </div>
                 <div>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        <div class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <div
+                            class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200"
+                        >
                             <h3
-                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5">
+                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5"
+                            >
                                 <ListBulletIcon class="w-5 h-5 text-blue-600" />
                                 Detalles Principales
                             </h3>
                             <ul class="space-y-1.5 text-sm">
                                 <li class="flex items-start py-0.5">
-                                    <BuildingOfficeIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <BuildingOfficeIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
                                     <strong
-                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Cliente:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.solicitante ?? 'S/INF' }}</span>
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Cliente:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.solicitante ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <IdentificationIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Número
-                                        Identificador:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.numero_identificador ?? 'S/INF' }}</span>
-                                </li>
-                                <li class="flex items-start py-0.5">
-                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
+                                    <IdentificationIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
                                     <strong
-                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Dirección:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.direccion
-                                        ?? 'S/INF' }}</span>
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Número Identificador:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.numero_identificador ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <UserIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Muestreado
-                                        por:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.muestreado_por ?? 'S/INF' }}</span>
+                                    <MapPinIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Dirección:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.direccion ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <DocumentTextIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Descripción
-                                        de la
-                                        muestra:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.descripcion_muestra ?? 'S/INF' }}</span>
+                                    <UserIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Muestreado por:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.muestreado_por ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
-                                        recepción:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.fecha_recepcion ?? 'S/INF' }}</span>
+                                    <DocumentTextIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Descripción de la muestra:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.descripcion_muestra ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <ClockIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
-                                        Inicio
-                                        Análisis:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.fecha_inicio_analisis ?? 'S/INF' }}</span>
+                                    <CalendarDaysIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Fecha de recepción:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.fecha_recepcion ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <ClockIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
-                                        Término
-                                        Análisis:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.fecha_termino_analisis ?? 'S/INF' }}</span>
+                                    <ClockIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Fecha de Inicio Análisis:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.fecha_inicio_analisis ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                                 <li class="flex items-start py-0.5">
-                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <strong class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate">Fecha de
-                                        Emisión:</strong>
-                                    <span class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.datalaudo
-                                        ?? 'S/INF' }}</span>
+                                    <ClockIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Fecha de Término Análisis:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.fecha_termino_analisis ??
+                                            "S/INF"
+                                        }}</span
+                                    >
+                                </li>
+                                <li class="flex items-start py-0.5">
+                                    <CalendarDaysIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <strong
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0 truncate"
+                                        >Fecha de Emisión:</strong
+                                    >
+                                    <span
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                        >{{
+                                            extendedDetailRecord.datalaudo ??
+                                            "S/INF"
+                                        }}</span
+                                    >
                                 </li>
                             </ul>
-                            <div v-if="Object.keys(extendedDetailRecord).every(key => !extendedDetailRecord[key])"
-                                class="text-gray-500 italic text-center py-2">
+                            <div
+                                v-if="
+                                    Object.keys(extendedDetailRecord).every(
+                                        (key) => !extendedDetailRecord[key]
+                                    )
+                                "
+                                class="text-gray-500 italic text-center py-2"
+                            >
                                 No hay detalles principales disponibles.
                             </div>
                         </div>
 
-                        <div class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <div
+                            class="info-card bg-white p-4 rounded-md shadow-sm border border-gray-200"
+                        >
                             <h3
-                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5">
+                                class="text-base font-semibold mb-3 pb-1 border-b text-gray-800 flex items-center gap-1.5"
+                            >
                                 <ArchiveBoxIcon class="w-5 h-5 text-blue-600" />
                                 Otros Datos Adicionales
                             </h3>
                             <dl class="text-sm space-y-1.5">
                                 <div class="flex items-start py-0.5">
-                                    <TagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Código Muestra Cliente:
+                                    <TagIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Código Muestra Cliente:
                                     </dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.codigo_muestra_cliente ?? 'S/INF' }}</dd>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.codigo_muestra_cliente ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
                                 </div>
                                 <div class="flex items-start py-0.5">
-                                    <TagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Variedad:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.variedad ??
-                                        'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <CalendarDaysIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Fecha de muestreo:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.fecha_muestreo ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <UserIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Muestreador:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.muestreador_persona ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Lugar de Muestreo:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.lugar_muestreo_detail ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <BuildingStorefrontIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Nombre Productor:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.nombre_productor ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <HashtagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Código de Productor:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.codigo_productor ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <MapPinIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Predio:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.predio ??
-                                        'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <HashtagIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">N° Registro Agricola:</dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.n_registro_agricola ?? 'S/INF' }}</dd>
-                                </div>
-                                <div class="flex items-start py-0.5">
-                                    <DocumentTextIcon class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                                    <dt class="text-gray-600 font-medium w-2/5 flex-shrink-0">Información Adicional:
+                                    <TagIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Variedad:
                                     </dt>
-                                    <dd class="text-gray-800 flex-1 ml-2 break-words text-right">{{
-                                        extendedDetailRecord.informacion_adicional ?? 'S/INF' }}</dd>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.variedad ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <CalendarDaysIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Fecha de muestreo:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.fecha_muestreo ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <UserIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Muestreador:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.muestreador_persona ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <MapPinIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Lugar de Muestreo:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.lugar_muestreo_detail ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <BuildingStorefrontIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Nombre Productor:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.nombre_productor ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <HashtagIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Código de Productor:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.codigo_productor ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <MapPinIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Predio:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.predio ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <HashtagIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        N° Registro Agricola:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.n_registro_agricola ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
+                                </div>
+                                <div class="flex items-start py-0.5">
+                                    <DocumentTextIcon
+                                        class="w-4 h-4 text-gray-500 mr-2 flex-shrink-0 mt-0.5"
+                                    />
+                                    <dt
+                                        class="text-gray-600 font-medium w-2/5 flex-shrink-0"
+                                    >
+                                        Información Adicional:
+                                    </dt>
+                                    <dd
+                                        class="text-gray-800 flex-1 ml-2 break-words text-right"
+                                    >
+                                        {{
+                                            extendedDetailRecord.informacion_adicional ??
+                                            "S/INF"
+                                        }}
+                                    </dd>
                                 </div>
 
-
-                                <div v-if="Object.keys(extendedDetailRecord).every(key => !extendedDetailRecord[key]) && detailRecord.moroso == null && detailRecord.mrl == null && detailRecord.mercados == null && detailRecord.retailers == null"
-                                    class="text-gray-500 italic text-center py-2">
+                                <div
+                                    v-if="
+                                        Object.keys(extendedDetailRecord).every(
+                                            (key) => !extendedDetailRecord[key]
+                                        ) &&
+                                        detailRecord.moroso == null &&
+                                        detailRecord.mrl == null &&
+                                        detailRecord.mercados == null &&
+                                        detailRecord.retailers == null
+                                    "
+                                    class="text-gray-500 italic text-center py-2"
+                                >
                                     No hay datos adicionales disponibles.
                                 </div>
                             </dl>
                         </div>
                     </div>
                     <div class="mt-4 pt-4 border-t">
-                        <h3 class="text-base font-semibold mb-3 pb-1.5 flex items-center gap-1.5 text-gray-700">
-                            <TableCellsIcon class="w-4 h-4" /> Resultados del Análisis
+                        <h3
+                            class="text-base font-semibold mb-3 pb-1.5 flex items-center gap-1.5 text-gray-700"
+                        >
+                            <TableCellsIcon class="w-4 h-4" /> Resultados del
+                            Análisis
                         </h3>
 
                         <div class="flex items-center space-x-3 mb-4">
-
-                            <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
-                                @click="handleExportBackend" title="Exportar detalle y resultados a Excel"
+                            <button
+                                v-if="
+                                    sampleResults.length > 0 &&
+                                    !isLoadingResults
+                                "
+                                type="button"
+                                @click="handleExportBackend"
+                                title="Exportar detalle y resultados a Excel"
                                 class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center"
-                                :disabled="isGenerating">
+                                :disabled="isGenerating"
+                            >
                                 <ArrowDownTrayIcon class="w-4 h-4 mr-1.5" />
                                 Exportar Excel
                             </button>
 
-                            <button v-if="sampleResults.length > 0 && !isLoadingResults" type="button"
-                                @click="descargarInformeIndividual" title="Descargar Informe PDF de esta muestra"
+                            <button
+                                v-if="
+                                    sampleResults.length > 0 &&
+                                    !isLoadingResults
+                                "
+                                type="button"
+                                @click="descargarInformeIndividual"
+                                title="Descargar Informe PDF de esta muestra"
                                 class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center"
-                                :disabled="isGenerating">
+                                :disabled="isGenerating"
+                            >
                                 <DocumentTextIcon class="w-4 h-4 mr-1.5" />
                                 Descargar Informe
                             </button>
-
                         </div>
-                        <div v-if="isLoadingResults"
-                            class="text-center p-5 text-blue-600 flex items-center justify-center gap-2 bg-blue-50 rounded border">
-                            <svg class="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l2-2.647z">
-                                </path>
+                        <div
+                            v-if="isLoadingResults"
+                            class="text-center p-5 text-blue-600 flex items-center justify-center gap-2 bg-blue-50 rounded border"
+                        >
+                            <svg
+                                class="animate-spin h-4 w-4 text-blue-500"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle
+                                    class="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    stroke-width="4"
+                                ></circle>
+                                <path
+                                    class="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l2-2.647z"
+                                ></path>
                             </svg>
                             Cargando resultados...
                         </div>
 
-                        <div v-else-if="resultsError" class="p-4 text-red-700 bg-red-50 border border-red-200 rounded">
+                        <div
+                            v-else-if="resultsError"
+                            class="p-4 text-red-700 bg-red-50 border border-red-200 rounded"
+                        >
                             <p>{{ resultsError }}</p>
                         </div>
 
-                        <div v-else-if="sampleResults.length > 0"
-                            class="overflow-x-auto border rounded max-h-[45vh] scrollable-area">
-                            <table class="min-w-full border-collapse compact-datatable">
+                        <div
+                            v-else-if="sampleResults.length > 0"
+                            class="overflow-x-auto border rounded max-h-[45vh] scrollable-area"
+                        >
+                            <table
+                                class="min-w-full border-collapse compact-datatable"
+                            >
                                 <thead class="bg-gray-100">
                                     <tr>
-                                        <th v-for="col in resultsColumns" :key="'res-h-' + col.field"
-                                            class="p-2 text-start border-b font-bold text-xs sticky top-0 z-10 bg-gray-100">
+                                        <th
+                                            v-for="col in resultsColumns"
+                                            :key="'res-h-' + col.field"
+                                            class="p-2 text-start border-b font-bold text-xs sticky top-0 z-10 bg-gray-100"
+                                        >
                                             {{ col.header }}
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y">
-                                    <tr v-for="(result, index) in sampleResults"
-                                        :key="'res-d-' + index + '-' + result.NUMERO" class="hover:bg-blue-50/50">
-                                        <td v-for="col in resultsColumns" :key="'res-c-' + col.field"
-                                            class="p-2 text-start text-xs text-gray-700">
+                                    <tr
+                                        v-for="(result, index) in sampleResults"
+                                        :key="
+                                            'res-d-' +
+                                            index +
+                                            '-' +
+                                            result.NUMERO
+                                        "
+                                        class="hover:bg-blue-50/50"
+                                    >
+                                        <td
+                                            v-for="col in resultsColumns"
+                                            :key="'res-c-' + col.field"
+                                            class="p-2 text-start text-xs text-gray-700"
+                                        >
                                             {{ result[col.field] ?? "-" }}
                                         </td>
                                     </tr>
@@ -1337,8 +1839,12 @@ function getRowClass(item) {
                             </table>
                         </div>
 
-                        <div v-else-if="!resultsError && sampleResults.length === 0"
-                            class="text-center p-4 text-gray-500 bg-gray-50 border rounded">
+                        <div
+                            v-else-if="
+                                !resultsError && sampleResults.length === 0
+                            "
+                            class="text-center p-4 text-gray-500 bg-gray-50 border rounded"
+                        >
                             No hay resultados de análisis disponibles.
                         </div>
                     </div>
@@ -1347,14 +1853,22 @@ function getRowClass(item) {
         </Transition>
     </div>
     <Transition name="fade-view">
-        <div v-if="showMrlModal"
-            class="fixed inset-0 bg-gray-900 bg-opacity-60 z-40 flex justify-center items-center p-4">
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg relative" @click.stop>
+        <div
+            v-if="showMrlModal"
+            class="fixed inset-0 bg-gray-900 bg-opacity-60 z-40 flex justify-center items-center p-4"
+        >
+            <div
+                class="bg-white rounded-lg shadow-xl w-full max-w-lg relative"
+                @click.stop
+            >
                 <div class="flex justify-between items-center p-4 border-b">
                     <h3 class="text-lg font-semibold text-gray-800">
                         Informe MRL
                     </h3>
-                    <button @click="showMrlModal = false" class="p-1 rounded-full hover:bg-gray-200">
+                    <button
+                        @click="showMrlModal = false"
+                        class="p-1 rounded-full hover:bg-gray-200"
+                    >
                         <XMarkIcon class="w-5 h-5 text-gray-600" />
                     </button>
                 </div>
@@ -1365,28 +1879,51 @@ function getRowClass(item) {
                     </div>
                     <div v-else class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Mercados</label>
-                            <MultiSelectDropdown v-model="mrlSelections.markets" :options="mrlOptions.markets"
-                                placeholder="Seleccionar mercados..." />
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-1"
+                                >Mercados</label
+                            >
+                            <MultiSelectDropdown
+                                v-model="mrlSelections.markets"
+                                :options="mrlOptions.markets"
+                                placeholder="Seleccionar mercados..."
+                            />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Retailers</label>
-                            <MultiSelectDropdown v-model="mrlSelections.retailers" :options="mrlOptions.retailers"
-                                placeholder="Seleccionar retailers..." />
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-1"
+                                >Retailers</label
+                            >
+                            <MultiSelectDropdown
+                                v-model="mrlSelections.retailers"
+                                :options="mrlOptions.retailers"
+                                placeholder="Seleccionar retailers..."
+                            />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Idioma</label>
+                            <label
+                                class="block text-sm font-medium text-gray-700 mb-2"
+                                >Idioma</label
+                            >
                             <div class="flex items-center space-x-4">
                                 <label class="inline-flex items-center">
-                                    <input type="radio" v-model="mrlSelections.language" value="0"
-                                        class="form-radio text-indigo-600" />
+                                    <input
+                                        type="radio"
+                                        v-model="mrlSelections.language"
+                                        value="0"
+                                        class="form-radio text-indigo-600"
+                                    />
                                     <span class="ml-2">Español</span>
                                 </label>
                                 <label class="inline-flex items-center">
-                                    <input type="radio" v-model="mrlSelections.language" value="1"
-                                        class="form-radio text-indigo-600" />
+                                    <input
+                                        type="radio"
+                                        v-model="mrlSelections.language"
+                                        value="1"
+                                        class="form-radio text-indigo-600"
+                                    />
                                     <span class="ml-2">Inglés</span>
                                 </label>
                             </div>
@@ -1394,19 +1931,66 @@ function getRowClass(item) {
                     </div>
                 </div>
 
-                <div class="flex justify-end items-center p-4 border-t bg-gray-50 rounded-b-lg">
-                    <button @click="showMrlModal = false" type="button"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">
+                <div
+                    class="flex justify-end items-center p-4 border-t bg-gray-50 rounded-b-lg"
+                >
+                    <button
+                        @click="showMrlModal = false"
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+                    >
                         Cancelar
                     </button>
-                    <button @click="handleGenerateMrlReport" type="button"
-                        class="ml-3 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700">
+                    <button
+                        @click="handleGenerateMrlReport"
+                        type="button"
+                        class="ml-3 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700"
+                    >
                         Generar
                     </button>
                 </div>
             </div>
         </div>
     </Transition>
+    <Transition name="fade-view">
+    <div v-if="showLanguageModal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-40 flex justify-center items-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md relative" @click.stop>
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-800">Seleccionar Idioma del Informe</h3>
+                <button @click="showLanguageModal = false" class="p-1 rounded-full hover:bg-gray-200">
+                    <XMarkIcon class="w-5 h-5 text-gray-600" />
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4">Por favor, elige en qué idioma deseas generar los informes para las {{ selectedItems.length }} muestras seleccionadas.</p>
+                <fieldset class="space-y-4">
+                    <div class="relative flex items-start">
+                        <div class="flex h-6 items-center">
+                            <input id="lang-es" v-model="selectedLanguage" value="es" type="radio" class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                        </div>
+                        <div class="ml-3 text-sm leading-6">
+                            <label for="lang-es" class="font-medium text-gray-900">Español</label>
+                            <p class="text-gray-500">Genera el informe estándar.</p>
+                        </div>
+                    </div>
+                    <div class="relative flex items-start">
+                        <div class="flex h-6 items-center">
+                            <input id="lang-en" v-model="selectedLanguage" value="en" type="radio" class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                        </div>
+                        <div class="ml-3 text-sm leading-6">
+                            <label for="lang-en" class="font-medium text-gray-900">Inglés</label>
+                            <p class="text-gray-500">Genera el informe en formato internacional.</p>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+            <div class="flex justify-end items-center p-4 border-t bg-gray-50 rounded-b-lg space-x-3">
+                <button @click="showLanguageModal = false" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Cancelar</button>
+                <button @click="handleGenerateReport" type="button" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700">Generar</button>
+            </div>
+        </div>
+    </div>
+</Transition>
 </template>
 <style scoped>
 /* Estilos tabla compacta */
