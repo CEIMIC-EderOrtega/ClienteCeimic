@@ -145,10 +145,10 @@ class MyLimsService
             throw new Exception("Error al obtener registros Food filtrados: " . $e->getMessage());
         }
     }
-       public function FilterNewFoodAdmin( array $filters): array
+    public function FilterNewFoodAdmin(array $filters): array
     {
 
-
+      
         $status_id_string = Arr::get($filters, 'status', '4');
 
         $valid_status_ids = ['2', '10', '3', '4'];
@@ -171,7 +171,7 @@ class MyLimsService
         $tipo = Arr::get($filters, 'search_tipo');
         $cdamostra = Arr::get($filters, 'search_cdamostra');
 
-        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados1 con parámetros:', [
+        Log::debug('Ejecutando CLink_obtenerRegistrosFoodFiltrados_Admin con parámetros:', [
             'Sit_INT_param' => $status_param_for_sp,
             'Solicitante' => $solicitante,
             'Grupo' => $grupo,
@@ -258,7 +258,7 @@ class MyLimsService
             throw new Exception("Error al obtener datos para el dashboard: " . $e->getMessage());
         }
     }
-/**
+    /**
      * Obtiene los datos para el dashboard principal para un Administrador.
      * Llama a un SP que no requiere validación de procesos.
      *
@@ -689,7 +689,7 @@ class MyLimsService
             throw new Exception("Error al validar procesos activos: " . $e->getMessage());
         }
     }
-public function extraerLaudosEnIngles(array $codigosMuestra): array
+    public function extraerLaudosEnIngles(array $codigosMuestra): array
     {
         // Configuración de la conexión y rutas
         $baseUrl = 'https://clink.ceimic.com/mylims'; // URL base del sistema LIMS
@@ -734,7 +734,6 @@ public function extraerLaudosEnIngles(array $codigosMuestra): array
                 } else {
                     Log::warning("Informe en inglés generado pero no encontrado en ruta de red: {$rutaCompleta}");
                 }
-
             } catch (\Exception $e) {
                 Log::error("Error procesando informe en inglés para cdamostra {$cdamostra}: " . $e->getMessage());
                 continue; // Si uno falla, continuamos con el siguiente
@@ -768,5 +767,4 @@ public function extraerLaudosEnIngles(array $codigosMuestra): array
         $singlePdf = $generatedPdfs[0];
         return [['NombreLaudo' => $singlePdf['NombreLaudo'], 'Laudo' => base64_encode($singlePdf['LaudoBinario'])]];
     }
-
 }
