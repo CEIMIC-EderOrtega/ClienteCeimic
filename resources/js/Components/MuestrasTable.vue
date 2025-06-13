@@ -53,9 +53,11 @@ const mrlSelections = ref({
 
 // Normaliza a minúsculas para una comparación robusta.
 const isSituacaoPermitida = (item) => {
-    const situacao = item.Situacao ? String(item.Situacao).toLowerCase() : "";
-    const estadosProhibidos = ["recebida", "finalizada", "En Proceso"];
-    return !estadosProhibidos.includes(situacao);
+    // 1. Leemos el campo correcto que viene del backend: SITUACION_FINAL.
+    const situacaoFinal = item.SITUACION_FINAL ? String(item.SITUACION_FINAL).toLowerCase().trim() : "";
+    
+    // 2. Aplicamos una "lista blanca": la acción solo se permite si el estado es exactamente 'publicado'.
+    return situacaoFinal === 'publicado';
 };
 
 // RENOMBRADA Y MODIFICADA: Ahora verifica si TODAS las muestras seleccionadas tienen una situación permitida

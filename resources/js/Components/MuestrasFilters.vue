@@ -6,11 +6,15 @@
                 <label for="status-selector" class="block text-xs font-medium text-gray-600 mb-0.5">Situación</label>
                 <select id="status-selector" v-model="localFilters.status" class="input-compact">
                     <option value="2">Recibida</option>
-                    <option value="10">En proceso</option>
+                    <option value="111">En Preparación</option>
+                    <option value="133">En Extracción</option>
+                    <option value="222">Analizando</option>
+                    <option value="444">En Revisión</option>
                     <option value="3">Finalizada</option>
                     <option value="4">Publicada</option>
                 </select>
             </div>
+
             <div>
                 <label for="date-from" class="block text-xs font-medium text-gray-600 mb-0.5">Publicada Desde</label>
                 <input type="date" id="date-from" v-model="localFilters.desde" class="input-compact" />
@@ -36,10 +40,7 @@
                 <input type="text" v-model.lazy="localFilters.search_grupo" placeholder="Grupo"
                     class="input-compact placeholder:italic" />
             </div>
-            <div>
-                <input type="text" v-model.lazy="localFilters.search_processo" placeholder="Proceso"
-                    class="input-compact placeholder:italic" />
-            </div>
+
             <div>
                 <input type="text" v-model.lazy="localFilters.search_numero" placeholder="Número"
                     class="input-compact placeholder:italic" />
@@ -90,11 +91,10 @@ const props = defineProps({
 const emit = defineEmits(["update-filters", "update-company-filter"]);
 
 const localFilters = reactive({
-    status: "4",
+    status: "4", // Default a "Publicada"
     desde: "",
     hasta: "",
     search_grupo: "",
-    search_processo: "",
     search_numero: "",
     search_idamostra: "",
     search_cdamostra: "",
@@ -123,7 +123,6 @@ const initializeFilters = () => {
         desde: props.initialFilters.desde || "",
         hasta: props.initialFilters.hasta || "",
         search_grupo: props.initialFilters.search_grupo || "",
-        search_processo: props.initialFilters.search_processo || "",
         search_numero: props.initialFilters.search_numero || "",
         search_idamostra: props.initialFilters.search_idamostra || "",
         search_cdamostra: props.initialFilters.search_cdamostra || "",
@@ -141,10 +140,9 @@ const triggerEmitFilters = () => {
 };
 
 const resetFilters = () => {
-    localFilters.status = "4";
+    localFilters.status = "4"; 
     setDefaultDates();
     localFilters.search_grupo = "";
-    localFilters.search_processo = "";
     localFilters.search_numero = "";
     localFilters.search_idamostra = "";
     localFilters.search_cdamostra = "";

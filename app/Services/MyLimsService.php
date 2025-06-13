@@ -151,10 +151,20 @@ class MyLimsService
       
         $status_id_string = Arr::get($filters, 'status', '4');
 
-        $valid_status_ids = ['2', '10', '3', '4'];
+      // ==============================================================================
+        // === INICIO DEL CAMBIO: Aceptar los nuevos códigos de estado ===
+        // ==============================================================================
+
+        // Se añaden los nuevos códigos a la lista de estados permitidos.
+        $valid_status_ids = ['2', '3', '4', '111', '133', '222', '444'];
         if (!in_array($status_id_string, $valid_status_ids)) {
             $status_id_string = '4'; // Si no es válido, usar '4' (Publicado) como defecto seguro.
         }
+
+        // ==============================================================================
+        // === FIN DEL CAMBIO ===
+        // ==============================================================================
+
 
         $status_param_for_sp = (int) $status_id_string;
 
