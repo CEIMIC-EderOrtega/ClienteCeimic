@@ -55,9 +55,9 @@ const mrlSelections = ref({
 const isSituacaoPermitida = (item) => {
     // 1. Leemos el campo correcto que viene del backend: SITUACION_FINAL.
     const situacaoFinal = item.SITUACION_FINAL ? String(item.SITUACION_FINAL).toLowerCase().trim() : "";
-    
+
     // 2. Aplicamos una "lista blanca": la acción solo se permite si el estado es exactamente 'publicado'.
-    return situacaoFinal === 'publicado';
+    return situacaoFinal === 'publicada';
 };
 
 // RENOMBRADA Y MODIFICADA: Ahora verifica si TODAS las muestras seleccionadas tienen una situación permitida
@@ -379,14 +379,14 @@ const definedColumns = ref([
     { field: "Coleta", header: "Fecha Muestreo" },
     { field: "Recepcao", header: "Fecha Recepción" },
     { field: "Previsao", header: "Fecha Prevista/Entrega" },
-    //{ field: "Situacao", header: "Situación" },    
+    //{ field: "Situacao", header: "Situación" },
     { field: "SITUACION_FINAL", header: "Situación" },
     { field: "Data_Situacao", header: "Fecha Situación" },
     //{ field: "cdunidade", header: "cdunidade" },
     //{ field: "moroso", header: "Moroso" },
-    { field: "mrl", header: "MRL" },
-    { field: "mercados", header: "Mercados" },
-    { field: "retailers", header: "Retailers" }
+    //{ field: "mrl", header: "MRL" },
+    //{ field: "mercados", header: "Mercados" },
+   // { field: "retailers", header: "Retailers" }
 ]);
 // LEYENDA DE ESTADOS ---
 const leyendaSituaciones = {

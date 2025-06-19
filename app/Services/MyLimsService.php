@@ -148,7 +148,7 @@ class MyLimsService
     public function FilterNewFoodAdmin(array $filters): array
     {
 
-      
+
         $status_id_string = Arr::get($filters, 'status', '4');
 
       // ==============================================================================
@@ -645,12 +645,12 @@ class MyLimsService
             WHERE
                 P.NMUDPROCESSO02 LIKE ? -- Se usa el parámetro seguro
                 AND P.NMUDPROCESSO02 IS NOT NULL
-                AND e.FLATIVO = 'S'
-                AND e.VEREMPRESA = (
-                    SELECT MAX(EE.VEREMPRESA)
-                    FROM EMPRESA EE WITH (NOLOCK)
-                    WHERE EE.IDAUXEMPRESA = e.IDAUXEMPRESA
-                )
+               -- AND e.FLATIVO = 'S'
+               -- AND e.VEREMPRESA = (
+                  --  SELECT MAX(EE.VEREMPRESA)
+                   -- FROM EMPRESA EE WITH (NOLOCK)
+                  --  WHERE EE.IDAUXEMPRESA = e.IDAUXEMPRESA
+                --)
                 AND P.VERPROCESSO = (
                     SELECT MAX(PP.VERPROCESSO)
                     FROM PROCESSO PP WITH (NOLOCK)

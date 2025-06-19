@@ -33,17 +33,15 @@ const form = useForm({
         <header>
             <h2 class="text-lg font-medium flex items-center gap-2 text-[#485F84]">
                 <UserIcon class="w-5 h-5 inline-block text-[#485F84]" />
-                Profile Information
+                Informacion de Perfil
             </h2>
 
-            <p class="mt-1 text-sm text-gray-600">
-                Update your account's profile information and email address.
-            </p>
+
         </header>
 
         <form @submit.prevent="form.patch(route('profile.update'))" class="mt-6 space-y-6">
             <div>
-                <InputLabel for="name" value="Name" />
+                <InputLabel for="name" value="Nombre" />
 
                 <TextInput id="name" type="text" class="mt-1 block w-full" v-model="form.name" required autofocus
                     autocomplete="name" />
@@ -52,7 +50,7 @@ const form = useForm({
             </div>
 
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="Correo" />
 
                 <TextInput id="email" type="email" class="mt-1 block w-full" v-model="form.email" required
                     autocomplete="username" />
@@ -75,10 +73,10 @@ const form = useForm({
             </div>
 
             <div class="flex items-center gap-4">
-                <PrimaryButton :disabled="form.processing">
+               <!-- <PrimaryButton :disabled="form.processing">
                     <CheckIcon class="w-4 h-4 mr-2 inline-block" />
-                    Save
-                </PrimaryButton>
+                    Guardar
+                </PrimaryButton>-->
 
                 <Transition enter-active-class="transition ease-in-out" enter-from-class="opacity-0"
                     leave-active-class="transition ease-in-out" leave-to-class="opacity-0">

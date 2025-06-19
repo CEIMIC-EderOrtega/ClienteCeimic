@@ -41,18 +41,17 @@ const updatePassword = () => {
         <header>
             <h2 class="text-lg font-medium flex items-center gap-2 text-[#485F84]">
                 <LockClosedIcon class="w-5 h-5 inline-block text-[#485F84]" />
-                Update Password
+                Actualizar Contraseña
             </h2>
 
             <p class="mt-1 text-sm text-gray-600">
-                Ensure your account is using a long, random password to stay
-                secure.
+                Asegúrese de que su cuenta utilice una contraseña larga y aleatoria para mantener la seguridad.
             </p>
         </header>
 
         <form @submit.prevent="updatePassword" class="mt-6 space-y-6">
             <div>
-                <InputLabel for="current_password" value="Current Password" />
+                <InputLabel for="current_password" value="Contraseña Actual" />
 
                 <TextInput id="current_password" ref="currentPasswordInput" v-model="form.current_password"
                     type="password" class="mt-1 block w-full" autocomplete="current-password" />
@@ -61,7 +60,7 @@ const updatePassword = () => {
             </div>
 
             <div>
-                <InputLabel for="password" value="New Password" />
+                <InputLabel for="password" value="Nueva Contraseña" />
 
                 <TextInput id="password" ref="passwordInput" v-model="form.password" type="password"
                     class="mt-1 block w-full" autocomplete="new-password" />
@@ -70,7 +69,7 @@ const updatePassword = () => {
             </div>
 
             <div>
-                <InputLabel for="password_confirmation" value="Confirm Password" />
+                <InputLabel for="password_confirmation" value="Confirmar Contraseña" />
 
                 <TextInput id="password_confirmation" v-model="form.password_confirmation" type="password"
                     class="mt-1 block w-full" autocomplete="new-password" />
